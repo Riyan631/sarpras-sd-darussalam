@@ -1,5 +1,5 @@
 /* Konfigurasi: isi URL dan anon/publishable key dari Supabase Project Settings > API */
-const SUPABASE_URL = "https://akebktlyhfrfwopxrnbt.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://akebktlyhfrfwopxrnbt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_cGvCIZszseAnEC4qOiHikw_DrAqliM3";
 const DB_NAME = "sarpras-darussalam-local-v2";
 const STORE = "records";
