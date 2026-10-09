@@ -100,21 +100,110 @@ $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("
 $("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
 $("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
-function reportItems(){return items.filter(i=>(!$("reportCategory").value||i.category===$("reportCategory").value)&&(!$("reportCondition").value||($("reportCondition").value==="good"?i.good>0:$("reportCondition").value==="minor"?i.minor>0:i.major>0)))}
-function renderReport(){const arr=reportItems();$("reportSummary").innerHTML=`<p><b>Jenis barang:</b> ${arr.length} · <b>Total unit:</b> ${arr.reduce((s,i)=>s+(+i.qty||0),0)} · <b>Unit rusak:</b> ${arr.reduce((s,i)=>s+(+i.minor||0)+(+i.major||0),0)} · <b>Tanggal:</b> ${new Date().toLocaleDateString("id-ID")}</p>`;$("reportTable").innerHTML=table(["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],arr.map((i,n)=>[n+1,esc(i.code),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]))}
-$("reportCategory").addEventListener("change",renderReport);$("reportCondition").addEventListener("change",renderReport);
+function reportItems(){
+  const roomFilter=$("reportRoomFilter")?.value||"";
+  return items.filter(i=>
+    (!$("reportCategory").value||i.category===$("reportCategory").value)&&
+    (!$("reportCondition").value||($("reportCondition").value==="good"?i.good>0:$("reportCondition").value==="minor"?i.minor>0:i.major>0))&&
+    (!roomFilter||(i.room_id||"")===roomFilter)
+  );
+}
+function renderReport(){
+  if($("reportRoomFilter")?.value==="__unassigned__"){renderReportUnassigned();return;}
+  const arr=reportItems();
+  const total=arr.reduce((s,i)=>s+(+i.qty||0),0);
+  const good=arr.reduce((s,i)=>s+(+i.good||0),0);
+  const minor=arr.reduce((s,i)=>s+(+i.minor||0),0);
+  const major=arr.reduce((s,i)=>s+(+i.major||0),0);
+  const damaged=arr.filter(i=>(+i.minor||0)>0||(+i.major||0)>0);
+  const oldRoomFilter=$("reportRoomFilter")?.value||"";
+  $("reportSummary").innerHTML=`
+    <style>
+      .condition-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+      .condition-card{border:1px solid #d7ded9;border-radius:10px;padding:12px;background:#f8faf9;color:#173b2f}
+      .condition-card span{display:block;font-size:12px;color:#53645c;margin-bottom:5px}
+      .condition-card strong{font-size:24px}
+      .condition-card small{display:block;font-size:11px;margin-top:3px}
+      .condition-heading{margin:20px 0 8px}
+      .report-filter-room{max-width:360px;margin:12px 0}
+      @media(max-width:650px){.condition-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media print{.condition-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.condition-card{padding:7px;background:#fff!important}.condition-card strong{font-size:16px}}
+    </style>
+    <p><b>Tanggal laporan:</b> ${new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}</p>
+    <label class="no-print report-filter-room">Filter ruangan
+      <select id="reportRoomFilter">
+        <option value="">Semua ruangan</option>
+        ${rooms.map(r=>`<option value="${esc(r.id)}" ${r.id===oldRoomFilter?"selected":""}>${esc(r.name)}</option>`).join("")}
+        <option value="__unassigned__" ${oldRoomFilter==="__unassigned__"?"selected":""}>Belum ditentukan</option>
+      </select>
+    </label>
+    <div class="condition-summary">
+      <div class="condition-card"><span>Jenis barang</span><strong>${arr.length}</strong><small>jenis</small></div>
+      <div class="condition-card"><span>Total unit</span><strong>${total}</strong><small>seluruh kondisi</small></div>
+      <div class="condition-card"><span>Kondisi baik</span><strong>${good}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Rusak ringan</span><strong>${minor}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Rusak berat</span><strong>${major}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Total unit rusak</span><strong>${minor+major}</strong><small>ringan + berat</small></div>
+    </div>
+    <h3 class="condition-heading">Daftar Barang Perlu Perbaikan</h3>
+    <p>Barang dengan kondisi rusak ringan atau rusak berat: <b>${damaged.length} jenis</b>.</p>
+    <div id="reportDamagedTable" class="tablewrap"></div>
+  `;
+  $("reportDamagedTable").innerHTML=table(["Kode","Nama","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],damaged.map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
+  $("reportTable").innerHTML=table(
+    ["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],
+    arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")])
+  );
+  const roomSelect=$("reportRoomFilter");
+  if(roomSelect) roomSelect.addEventListener("change",()=>{
+    const value=roomSelect.value;
+    if(value==="__unassigned__"){
+      roomSelect.dataset.unassigned="1";
+      renderReportUnassigned();
+    } else {
+      roomSelect.dataset.unassigned="";
+      renderReport();
+      const updated=$("reportRoomFilter");
+      if(updated) updated.value=value;
+    }
+  });
+}
+function renderReportUnassigned(){
+  const select=$("reportRoomFilter");
+  const category=$("reportCategory").value;
+  const condition=$("reportCondition").value;
+  const arr=items.filter(i=>(!category||i.category===category)&&(!condition||(condition==="good"?i.good>0:condition==="minor"?i.minor>0:i.major>0))&&!i.room_id);
+  const total=arr.reduce((s,i)=>s+(+i.qty||0),0),good=arr.reduce((s,i)=>s+(+i.good||0),0),minor=arr.reduce((s,i)=>s+(+i.minor||0),0),major=arr.reduce((s,i)=>s+(+i.major||0),0);
+  const damaged=arr.filter(i=>(+i.minor||0)>0||(+i.major||0)>0);
+  $("reportSummary").innerHTML=`
+    <style>.condition-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}.condition-card{border:1px solid #d7ded9;border-radius:10px;padding:12px;background:#f8faf9;color:#173b2f}.condition-card span{display:block;font-size:12px;color:#53645c;margin-bottom:5px}.condition-card strong{font-size:24px}.condition-card small{display:block;font-size:11px;margin-top:3px}.condition-heading{margin:20px 0 8px}@media(max-width:650px){.condition-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{.condition-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.condition-card{padding:7px;background:#fff!important}.condition-card strong{font-size:16px}}</style>
+    <p><b>Tanggal laporan:</b> ${new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}</p>
+    <label class="no-print report-filter-room">Filter ruangan
+      <select id="reportRoomFilter"><option value="">Semua ruangan</option>${rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("")}<option value="__unassigned__" selected>Belum ditentukan</option></select>
+    </label>
+    <div class="condition-summary">
+      <div class="condition-card"><span>Jenis barang</span><strong>${arr.length}</strong><small>jenis</small></div>
+      <div class="condition-card"><span>Total unit</span><strong>${total}</strong><small>seluruh kondisi</small></div>
+      <div class="condition-card"><span>Kondisi baik</span><strong>${good}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Rusak ringan</span><strong>${minor}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Rusak berat</span><strong>${major}</strong><small>unit</small></div>
+      <div class="condition-card"><span>Total unit rusak</span><strong>${minor+major}</strong><small>ringan + berat</small></div>
+    </div>
+    <h3 class="condition-heading">Daftar Barang Perlu Perbaikan</h3><p>Barang dengan kondisi rusak ringan atau rusak berat: <b>${damaged.length} jenis</b>.</p><div id="reportDamagedTable" class="tablewrap"></div>`;
+  $("reportDamagedTable").innerHTML=table(["Kode","Nama","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],damaged.map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
+  $("reportTable").innerHTML=table(["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
+  const newSelect=$("reportRoomFilter");
+  if(newSelect)newSelect.addEventListener("change",()=>{if(newSelect.value==="__unassigned__")renderReportUnassigned();else renderReport()});
+}
+$("reportCategory").addEventListener("change",renderReport);
+$("reportCondition").addEventListener("change",renderReport);
 function csvCell(v){let s=String(v??"");if(/^[=+\-@]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function csvDownload(name,headers,rows){const blob=new Blob(["\ufeff"+[headers,...rows].map(r=>r.map(csvCell).join(";")).join("\r\n")],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1200)}
 const itemCSV=arr=>arr.map(i=>[i.code,i.name,i.category,roomLabel(i.room_id),i.qty,i.good,i.minor,i.major,i.year,i.recorder,i.notes]);
 $("exportItems").addEventListener("click",()=>csvDownload("inventaris_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(items)));
 $("exportRooms").addEventListener("click",()=>csvDownload("ruangan_sd_darussalam.csv",["Nama","Jenis","Penanggung jawab","Keterangan"],rooms.map(r=>[r.name,r.type,r.pic,r.notes])));
 $("exportReport").addEventListener("click",()=>csvDownload("laporan_sarpras_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(reportItems())));
-$("printReport").addEventListener("click", (e) => {
-  e.preventDefault();
-  activateView("reports");
-  window.focus();
-  window.print();
-});
+$("printReport").addEventListener("click",()=>{activateView("reports");window.print()});
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
 async function callAdminFunction(body){const {data:{session}}=await sb.auth.getSession();const {data,error}=await sb.functions.invoke("admin-users",{body,headers:{Authorization:"Bearer "+session.access_token}});if(error)throw error;return data}
