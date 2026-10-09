@@ -1,0 +1,11 @@
+{
+  "name": "SARPRAS SD Darussalam Palangkaraya",
+  "short_name": "SARPRAS SD",
+  "description": "Pendataan sarana dan prasarana SD Darussalam Palangkaraya",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#123c2f",
+  "icons": []
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#123c2f"><meta name="description" content="Aplikasi pendataan SARPRAS SD Darussalam Palangkaraya">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./styles.css">
+<title>SARPRAS SD Darussalam</title>
+</head>
+<body>
+<header><div class="brand"><div class="logo">SD</div><div><h1>SARPRAS SD DARUSSALAM</h1><p>Palangkaraya · Inventaris Sarana dan Prasarana</p></div></div><div class="status"><span id="netDot">●</span><span id="netStatus">Memeriksa koneksi…</span><span id="syncStatus"></span></div></header>
+<main>
+<section id="setupNotice" class="notice hidden"><b>Setup belum selesai.</b> Masukkan URL dan anon/publishable key Supabase pada file <code>app.js</code>, lalu deploy skema SQL. Lihat <code>PETUNJUK-SETUP.md</code>.</section>
+<section id="loginPanel" class="panel login">
+<h2>Masuk ke Aplikasi</h2><p class="muted">Gunakan akun petugas yang telah dibuat oleh admin utama.</p>
+<form id="loginForm"><label>Email<input id="email" type="email" autocomplete="username" required></label><label>Kata sandi<input id="password" type="password" autocomplete="current-password" required></label><button class="btn" type="submit">Masuk</button><p id="loginMsg" class="msg"></p></form>
+</section>
+<section id="appPanel" class="hidden">
+<div class="toolbar"><div><b id="userLabel">Pengguna</b><span id="roleLabel" class="pill"></span></div><div class="toolbar-actions"><button id="syncNow" class="btn light">Sinkronkan sekarang</button><button id="logout" class="btn danger">Keluar</button></div></div>
+<nav class="tabs"><button class="tab active" data-view="dashboard">Ringkasan</button><button class="tab" data-view="inventory">Inventaris</button><button class="tab" data-view="rooms">Ruangan</button><button class="tab" data-view="reports">Laporan</button><button class="tab admin-only hidden" data-view="admins">Kelola Admin</button><button class="tab" data-view="backup">Cadangan</button></nav>
+<section class="view active" id="view-dashboard">
+<div class="stats"><div class="stat"><strong id="countKinds">0</strong><span>Jenis barang</span></div><div class="stat"><strong id="countUnits">0</strong><span>Total unit</span></div><div class="stat"><strong id="countRooms">0</strong><span>Ruangan</span></div><div class="stat"><strong id="countDamaged">0</strong><span>Unit rusak</span></div></div>
+<div class="panel"><h2>Status Sinkronisasi</h2><p id="syncExplanation">Data lokal akan disinkronkan saat online.</p><p class="muted">Jangan hapus data browser saat ada perubahan yang belum tersinkron. Gunakan cadangan secara berkala.</p></div>
+<div class="panel"><h2>Data Barang Terbaru</h2><div id="recentTable" class="tablewrap"></div></div>
+</section>
+<section class="view" id="view-inventory">
+<div class="panel"><h2 id="itemFormTitle">Tambah Inventaris</h2><form id="itemForm"><input type="hidden" id="itemId">
+<div class="formgrid">
+<label>Kode inventaris<input id="itemCode" placeholder="INV-001"></label><label>Nama barang *<input id="itemName" required></label>
+<label>Kategori<select id="itemCategory" required><option value="">Pilih</option><option>Perabot</option><option>Elektronik</option><option>Peralatan pembelajaran</option><option>Bangunan/fasilitas</option><option>Olahraga</option><option>Kebersihan</option><option>Perpustakaan</option><option>Lainnya</option></select></label>
+<label>Ruangan<select id="itemRoom"><option value="">Belum ditentukan</option></select></label>
+<label>Jumlah unit<input id="itemQty" type="number" min="0" value="1" required></label><label>Tahun pengadaan<input id="itemYear" type="number" min="1900" max="2100" placeholder="2026"></label>
+<label>Kondisi baik<input id="itemGood" type="number" min="0" value="1" required></label><label>Rusak ringan<input id="itemMinor" type="number" min="0" value="0" required></label><label>Rusak berat<input id="itemMajor" type="number" min="0" value="0" required></label>
+<label>Petugas pencatat<input id="itemRecorder" placeholder="Nama petugas"></label><label>Foto barang<input id="itemPhoto" type="file" accept="image/*" capture="environment"></label><label>Foto kerusakan<input id="damagePhoto" type="file" accept="image/*" capture="environment"></label>
+<label class="wide">Keterangan / kerusakan<textarea id="itemNotes" rows="3"></textarea></label></div>
+<div class="actions"><button class="btn" type="submit">Simpan</button><button class="btn light" type="button" id="itemReset">Kosongkan</button></div><p class="muted tiny">Foto diperkecil sebelum disimpan. Foto dan data yang ditambahkan offline akan menunggu antrean sinkronisasi.</p></form></div>
+<div class="panel"><div class="panelhead"><h2>Daftar Inventaris</h2><input id="itemSearch" placeholder="Cari barang…"></div><div id="itemsTable" class="tablewrap"></div><div class="actions"><button class="btn light" id="exportItems">Ekspor CSV untuk Excel</button><button class="btn light" onclick="window.print()">Cetak</button></div></div>
+</section>
+<section class="view" id="view-rooms">
+<div class="panel"><h2>Tambah Ruangan</h2><form id="roomForm"><div class="formgrid"><label>Nama ruangan *<input id="roomName" required placeholder="Ruang Kelas 1"></label><label>Jenis<select id="roomType"><option>Kelas</option><option>Kantor</option><option>Perpustakaan</option><option>UKS</option><option>Toilet</option><option>Gudang</option><option>Laboratorium</option><option>Halaman/lapangan</option><option>Lainnya</option></select></label><label>Penanggung jawab<input id="roomPIC"></label><label>Keterangan<input id="roomNotes"></label></div><div class="actions"><button class="btn" type="submit">Tambah Ruangan</button></div></form></div>
+<div class="panel"><h2>Daftar Ruangan</h2><div id="roomsTable" class="tablewrap"></div><div class="actions"><button class="btn light" id="exportRooms">Ekspor Ruangan CSV</button></div></div>
+</section>
+<section class="view" id="view-reports"><div class="panel"><h2>Laporan Inventaris</h2><div class="formgrid no-print"><label>Filter kategori<select id="reportCategory"><option value="">Semua kategori</option><option>Perabot</option><option>Elektronik</option><option>Peralatan pembelajaran</option><option>Bangunan/fasilitas</option><option>Olahraga</option><option>Kebersihan</option><option>Perpustakaan</option><option>Lainnya</option></select></label><label>Filter kondisi<select id="reportCondition"><option value="">Semua kondisi</option><option value="good">Ada unit baik</option><option value="minor">Ada rusak ringan</option><option value="major">Ada rusak berat</option></select></label></div><div id="reportSummary"></div><div id="reportTable" class="tablewrap"></div><div class="actions no-print"><button class="btn" id="printReport">Cetak Laporan</button><button class="btn light" id="exportReport">Ekspor CSV untuk Excel</button></div></div></section>
+<section class="view" id="view-admins"><div class="panel"><h2>Kelola Akun Petugas</h2><p class="muted">Hanya admin utama yang dapat membuat akun atau mengubah peran. Akun dibuat melalui fungsi server yang aman.</p><form id="createUserForm"><div class="formgrid"><label>Email petugas *<input id="newUserEmail" type="email" required></label><label>Kata sandi sementara *<input id="newUserPassword" type="password" minlength="8" required><span class="tiny muted">Minimal 8 karakter. Sampaikan secara aman dan minta petugas menggantinya.</span></label><label>Peran<select id="newUserRole"><option value="petugas">Petugas</option><option value="admin">Admin</option></select></label></div><div class="actions"><button class="btn" type="submit">Buat Akun</button></div><p id="adminMsg" class="msg"></p></form></div><div class="panel"><h2>Akun Terdaftar</h2><div id="adminsTable" class="tablewrap"></div><p class="tiny muted">Untuk keamanan, fungsi ini tidak menyediakan penghapusan akun secara langsung. Nonaktifkan pengguna dari Supabase Dashboard bila diperlukan.</p></div></section>
+<section class="view" id="view-backup"><div class="panel"><h2>Cadangan Data</h2><p>Cadangan lokal mencakup data yang telah tersimpan di perangkat. Data yang belum tersinkron juga dapat disertakan.</p><div class="actions"><button id="backupDownload" class="btn">Unduh Cadangan JSON</button><label class="btn light filebtn">Pulihkan Cadangan<input id="restoreBackup" type="file" accept=".json,application/json"></label></div><div class="notice">Simpan cadangan secara berkala. Pemulihan mengganti data lokal di perangkat ini; data yang telah berada di database bersama tidak otomatis dihapus.</div></div></section>
+</section>
+<footer>SD Darussalam Palangkaraya · SARPRAS · PWA offline dengan sinkronisasi tertunda</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./app.js"></script>
+</body></html>
