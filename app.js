@@ -29,7 +29,56 @@ const q=($("itemSearch").value||"").toLowerCase(), visible=items.filter(i=>[i.co
 $("itemsTable").innerHTML=table(["Kode","Nama / kategori","Ruangan","Jumlah","Kondisi","Foto","Tindakan"],visible.map(i=>[esc(i.code||"-"),`<b>${esc(i.name)}</b><br>${esc(i.category)}<br><small>${esc(i.year||"")}</small>`,esc(roomLabel(i.room_id)||"-"),i.qty,cond(i),`${i.photo?`<img class="thumb" src="${i.photo}" alt="Foto barang">`:""}${i.damage_photo?`<img class="thumb" src="${i.damage_photo}" alt="Foto kerusakan">`:""}`,`<button class="btn light" data-edit="${i.id}">Edit</button> <button class="btn danger" data-del="${i.id}">Hapus</button><br><small>${esc(i.sync_state||"tersimpan")}</small>`]));
 $("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Tindakan"],rooms.map(r=>[esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),items.filter(i=>i.room_id===r.id).length,`<button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]));
 $("recentTable").innerHTML=table(["Kode","Barang","Ruangan","Jumlah","Kondisi"],[...items].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")).slice(0,5).map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,cond(i)]));
+renderDashboardDetails();
 renderReport();updateQueueStatus();
+}
+function renderDashboardDetails(){
+  const recent=$("recentTable");
+  if(!recent)return;
+  let panel=$("dashboardDetails");
+  if(!panel){panel=document.createElement("section");panel.id="dashboardDetails";panel.className="dashboard-details";recent.parentElement.insertAdjacentElement("afterend",panel);}
+  const sum=key=>items.reduce((n,i)=>n+(Number(i[key])||0),0);
+  const total=sum("qty"),good=sum("good"),minor=sum("minor"),major=sum("major"),damaged=minor+major;
+  const pct=n=>total?Math.round(n/total*100):0;
+  const cats={};items.forEach(i=>{const k=i.category||"Lainnya";cats[k]=(cats[k]||0)+(Number(i.qty)||0)});
+  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const damagedRows=items.filter(i=>(Number(i.minor)||0)+(Number(i.major)||0)>0).sort((a,b)=>(((Number(b.major)||0)*2+(Number(b.minor)||0))-((Number(a.major)||0)*2+(Number(a.minor)||0)))).slice(0,5);
+  panel.innerHTML=`
+    <style>
+      #dashboardDetails{margin-top:16px;color:var(--text,#1f2937)}
+      #dashboardDetails .dash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      #dashboardDetails .dash-card{background:var(--card,#fff);border:1px solid var(--border,#dbe2e8);border-radius:12px;padding:16px;min-width:0}
+      #dashboardDetails h3{font-size:16px;margin:0 0 13px}
+      #dashboardDetails .dash-line{display:grid;grid-template-columns:105px minmax(30px,1fr) 46px;align-items:center;gap:8px;margin:12px 0;font-size:13px}
+      #dashboardDetails .dash-track{height:10px;border-radius:20px;background:#edf0f3;overflow:hidden}
+      #dashboardDetails .dash-fill{height:100%;border-radius:20px;min-width:0}
+      #dashboardDetails .dash-good{background:#248653}#dashboardDetails .dash-minor{background:#e3a326}#dashboardDetails .dash-major{background:#c94242}
+      #dashboardDetails .dash-note{font-size:12px;color:var(--muted,#667085);margin:8px 0 0}
+      #dashboardDetails .dash-category{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border,#e5e7eb);font-size:13px}
+      #dashboardDetails .dash-category:last-child{border-bottom:0}
+      @media(max-width:700px){#dashboardDetails .dash-grid{grid-template-columns:1fr}#dashboardDetails .dash-line{grid-template-columns:90px minmax(30px,1fr) 42px;gap:6px}}
+      @media print{#dashboardDetails .dash-grid{grid-template-columns:1fr 1fr}#dashboardDetails .dash-card{break-inside:avoid}}
+    </style>
+    <div class="dash-grid">
+      <div class="dash-card"><h3>Grafik Kondisi Barang</h3>
+        ${[["Baik",good,"dash-good"],["Rusak ringan",minor,"dash-minor"],["Rusak berat",major,"dash-major"]].map(([label,n,cls])=>`<div class="dash-line"><span>${label}</span><div class="dash-track"><div class="dash-fill ${cls}" style="width:${pct(n)}%"></div></div><b>${n} (${pct(n)}%)</b></div>`).join("")}
+        <p class="dash-note">Persentase dihitung dari total ${total} unit barang.</p>
+      </div>
+      <div class="dash-card"><h3>Jenis Barang per Kategori</h3>
+        ${catRows.length?catRows.map(([name,n])=>`<div class="dash-category"><span>${esc(name)}</span><b>${n} unit</b></div>`).join(""):'<p class="dash-note">Belum ada data inventaris.</p>'}
+        ${Object.keys(cats).length>5?`<p class="dash-note">Menampilkan 5 kategori dengan jumlah unit terbanyak.</p>`:""}
+      </div>
+      <div class="dash-card"><h3>Barang Perlu Perhatian</h3>
+        ${damagedRows.length?table(["Barang","Ruangan","Rusak ringan","Rusak berat"],damagedRows.map(i=>[esc(i.name),esc(roomLabel(i.room_id)||"Belum ditentukan"),Number(i.minor)||0,Number(i.major)||0])):'<p class="dash-note">Tidak ada barang rusak yang tercatat.</p>'}
+        <p class="dash-note">Total unit rusak: <b>${damaged}</b> dari ${total} unit.</p>
+      </div>
+      <div class="dash-card"><h3>Kelengkapan Pendataan</h3>
+        <div class="dash-category"><span>Barang sudah ditempatkan</span><b>${items.filter(i=>i.room_id).length} jenis</b></div>
+        <div class="dash-category"><span>Barang belum ditentukan ruangannya</span><b>${items.filter(i=>!i.room_id).length} jenis</b></div>
+        <div class="dash-category"><span>Ruangan terdata</span><b>${rooms.length} ruangan</b></div>
+        <p class="dash-note">Gunakan angka ini untuk membantu memeriksa data yang masih perlu dilengkapi.</p>
+      </div>
+    </div>`;
 }
 async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);render()}
 async function cacheRecord(tableName,data){await dbPut(STORE,{key:tableName+":"+data.id,table:tableName,data});}
