@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_cGvCIZszseAnEC4qOiHikw_DrAqliM3";
 const DB_NAME = "sarpras-darussalam-local-v2";
 const STORE = "records";
 const QUEUE = "outbox";
-let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [];
+let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [];
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
@@ -18,7 +18,7 @@ function setMsg(id,msg,good=false){const el=$(id);if(el){el.textContent=msg;el.c
 function onlineStatus(){$("netStatus").textContent=navigator.onLine?"Online":"Offline";$("netDot").style.color=navigator.onLine?"#8ef0a5":"#ff9b9b";$("syncStatus").textContent="";$("syncExplanation").textContent=navigator.onLine?"Koneksi tersedia. Perubahan lokal akan dikirim ke database bersama.":"Offline. Perubahan disimpan di perangkat ini dan menunggu koneksi."}
 function showApp(){ $("loginPanel").classList.add("hidden");$("appPanel").classList.remove("hidden");$("userLabel").textContent=currentUser?.email||"Pengguna";$("roleLabel").textContent=currentRole==="admin_utama"?"Admin utama":(currentRole==="admin"?"Admin":"Petugas");document.querySelectorAll(".admin-only").forEach(e=>e.classList.toggle("hidden",currentRole!=="admin_utama")); }
 function showLogin(){ $("appPanel").classList.add("hidden");$("loginPanel").classList.remove("hidden"); }
-function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();}
+function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();}
 function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(v=>`<td>${v??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${head.length}" class="muted">Belum ada data.</td></tr>`}</tbody></table>`}
 function roomLabel(id){return rooms.find(r=>r.id===id)?.name||""}
 function cond(i){return `<span class="pill">${i.good||0} baik</span> <span class="pill">${i.minor||0} ringan</span> <span class="pill">${i.major||0} berat</span>`}
@@ -30,7 +30,7 @@ $("itemsTable").innerHTML=table(["Kode","Nama / kategori","Ruangan","Jumlah","Ko
 $("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Tindakan"],rooms.map(r=>[esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),items.filter(i=>i.room_id===r.id).length,`<button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]));
 $("recentTable").innerHTML=table(["Kode","Barang","Ruangan","Jumlah","Kondisi"],[...items].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")).slice(0,5).map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,cond(i)]));
 renderDashboardDetails();
-renderReport();updateQueueStatus();
+renderReport();renderMutations();updateQueueStatus();
 }
 function renderDashboardDetails(){
   const recent=$("recentTable");
@@ -80,7 +80,7 @@ function renderDashboardDetails(){
       </div>
     </div>`;
 }
-async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);render()}
+async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);mutations=all.filter(x=>x.table==="mutations").map(x=>x.data).sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));render()}
 async function cacheRecord(tableName,data){await dbPut(STORE,{key:tableName+":"+data.id,table:tableName,data});}
 async function removeCached(tableName,id){await dbDelete(STORE,tableName+":"+id)}
 async function queueOp(tableName,op,data,id=data.id){await dbPut(QUEUE,{id:uuid(),table:tableName,op,data,row_id:id,queued_at:new Date().toISOString()});}
@@ -106,7 +106,7 @@ async function syncQueue(){
 }
 async function fetchRemote(){
  if(!sb||!navigator.onLine||!currentUser)return;
- for(const t of ["rooms","inventory"]){
+ for(const t of ["rooms","inventory","mutations"]){
    const {data,error}=await sb.from(t).select("*");if(error){console.warn(error.message);continue}
    const pending=await dbAll(QUEUE);const pendingIds=new Set(pending.filter(op=>op.table===t).map(op=>op.row_id));for(const row of (data||[])){if(pendingIds.has(row.id))continue;row.sync_state="tersinkron";await cacheRecord(t,row)}
  }
@@ -259,6 +259,90 @@ async function callAdminFunction(body){const {data:{session}}=await sb.auth.getS
 async function loadProfiles(){if(currentRole!=="admin_utama")return;try{const {data,error}=await sb.from("profiles").select("id,email,display_name,role,created_at").order("created_at");if(error)throw error;profiles=data||[];$("adminsTable").innerHTML=table(["Email","Nama","Peran","Ubah peran"],profiles.map(p=>[esc(p.email||"(email tidak tersedia)"),esc(p.display_name||"-"),esc(p.role),p.id===currentUser.id?"Admin utama":`<select data-role-id="${p.id}"><option value="petugas" ${p.role==="petugas"?"selected":""}>Petugas</option><option value="admin" ${p.role==="admin"?"selected":""}>Admin</option></select>`]));}catch(e){$("adminsTable").textContent="Gagal memuat akun: "+e.message}}
 $("adminsTable").addEventListener("change",async e=>{const id=e.target.dataset.roleId;if(!id)return;try{await callAdminFunction({action:"set_role",user_id:id,role:e.target.value});await loadProfiles();alert("Peran akun diperbarui.")}catch(err){alert("Tidak dapat mengubah peran: "+err.message);await loadProfiles()}});
 $("createUserForm").addEventListener("submit",async e=>{e.preventDefault();try{setMsg("adminMsg","Membuat akun…");await callAdminFunction({action:"create_user",email:$("newUserEmail").value.trim(),password:$("newUserPassword").value,role:$("newUserRole").value});setMsg("adminMsg","Akun berhasil dibuat.",true);$("createUserForm").reset();await loadProfiles()}catch(err){setMsg("adminMsg","Gagal membuat akun: "+err.message)}});
+
+// Modul mutasi barang: UI ditambahkan tanpa mengubah struktur halaman yang sudah ada.
+function initMutationUI(){
+  if($("view-mutations"))return;
+  const firstTab=document.querySelector(".tab"),firstView=document.querySelector(".view");
+  if(!firstTab||!firstView)return;
+  const navParent=firstTab.parentElement;
+  const tab=document.createElement("button");tab.type="button";tab.className=firstTab.className;tab.dataset.view="mutations";tab.textContent="Mutasi Barang";navParent.appendChild(tab);tab.addEventListener("click",()=>activateView("mutations"));
+  const viewParent=firstView.parentElement;
+  const view=document.createElement("section");view.id="view-mutations";view.className=firstView.className;view.innerHTML=`
+    <div class="card">
+      <h2>Catat Mutasi Barang</h2>
+      <p class="muted">Mutasi akan langsung memperbarui inventaris utama dan menyimpan riwayat. Pastikan jenis dan jumlah mutasi benar sebelum menyimpan.</p>
+      <form id="mutationForm">
+        <div class="grid">
+          <div class="field"><label for="mutationType">Jenis mutasi</label><select id="mutationType" required><option value="incoming">Barang masuk</option><option value="transfer">Pemindahan ruangan</option><option value="outgoing">Barang keluar</option></select></div>
+          <div class="field"><label for="mutationItem">Barang inventaris</label><select id="mutationItem" required></select></div>
+          <div class="field"><label for="mutationQty">Jumlah unit</label><input id="mutationQty" type="number" min="1" step="1" value="1" required></div>
+          <div class="field" id="mutationConditionWrap"><label for="mutationCondition">Kondisi unit keluar</label><select id="mutationCondition"><option value="good">Baik</option><option value="minor">Rusak ringan</option><option value="major">Rusak berat</option></select></div>
+          <div class="field" id="mutationToRoomWrap"><label for="mutationToRoom">Ruangan tujuan</label><select id="mutationToRoom"></select></div>
+          <div class="field"><label for="mutationReason">Alasan / sumber / tujuan</label><input id="mutationReason" maxlength="200" placeholder="Contoh: pembelian, hibah, dipindahkan" required></div>
+          <div class="field"><label for="mutationNotes">Keterangan tambahan</label><input id="mutationNotes" maxlength="500" placeholder="Nomor dokumen atau keterangan (opsional)"></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Simpan Mutasi</button><button class="btn secondary" id="mutationReset" type="button">Bersihkan</button></div>
+        <p id="mutationMsg" class="msg" role="status"></p>
+      </form>
+    </div>
+    <div class="card"><h2>Riwayat Mutasi Barang</h2><div class="field no-print"><label for="mutationSearch">Cari riwayat</label><input id="mutationSearch" placeholder="Cari nama barang, jenis mutasi, alasan…"></div><div id="mutationsTable" class="tablewrap"></div><div class="actions no-print"><button class="btn secondary" id="exportMutations" type="button">Ekspor Riwayat Mutasi (CSV Excel)</button><button class="btn secondary" id="printMutations" type="button">Cetak Riwayat</button></div></div>`;
+  viewParent.appendChild(view);
+  $("mutationType").addEventListener("change",updateMutationForm);
+  $("mutationItem").addEventListener("change",updateMutationForm);
+  $("mutationSearch").addEventListener("input",renderMutations);
+  $("mutationReset").addEventListener("click",()=>{$("mutationForm").reset();$("mutationQty").value=1;updateMutationForm();setMsg("mutationMsg","Form dibersihkan.",true)});
+  $("mutationForm").addEventListener("submit",saveMutation);
+  $("exportMutations").addEventListener("click",()=>csvDownload("riwayat_mutasi_sarpras_sd_darussalam.csv",["Tanggal","Jenis Mutasi","Kode","Nama Barang","Jumlah","Kondisi","Dari Ruangan","Ke Ruangan","Alasan","Keterangan","Petugas"],filteredMutations().map(m=>[m.created_at?new Date(m.created_at).toLocaleString("id-ID"):"",mutationTypeLabel(m.type),m.item_code,m.item_name,m.quantity,conditionLabel(m.condition),roomLabel(m.from_room_id)||"-",roomLabel(m.to_room_id)||"-",m.reason,m.notes,m.performed_by_email||""])));
+  $("printMutations").addEventListener("click",()=>window.print());
+  updateMutationForm();
+}
+function mutationTypeLabel(v){return v==="incoming"?"Barang masuk":v==="outgoing"?"Barang keluar":"Pemindahan ruangan"}
+function conditionLabel(v){return v==="minor"?"Rusak ringan":v==="major"?"Rusak berat":v==="good"?"Baik":"-"}
+function updateMutationForm(){
+  const type=$("mutationType")?.value||"incoming",chosen=$("mutationItem")?.value||"";
+  if($("mutationItem"))$("mutationItem").innerHTML='<option value="">Pilih barang inventaris</option>'+items.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(i=>`<option value="${esc(i.id)}" ${i.id===chosen?"selected":""}>${esc(i.code||"Tanpa kode")} — ${esc(i.name)} (stok ${Number(i.qty)||0})</option>`).join("");
+  if($("mutationToRoom"))$("mutationToRoom").innerHTML='<option value="">Pilih ruangan</option>'+rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
+  if($("mutationConditionWrap"))$("mutationConditionWrap").style.display=type==="outgoing"?"block":"none";
+  if($("mutationToRoomWrap"))$("mutationToRoomWrap").style.display=type==="transfer"?"block":"none";
+  const selected=items.find(i=>i.id===($("mutationItem")?.value||""));
+  const condSelect=$("mutationCondition");if(condSelect&&selected){for(const opt of condSelect.options){const key=opt.value;opt.disabled=Number(selected[key]||0)<1;opt.textContent=conditionLabel(key)+(opt.disabled?" (0 unit)":" (tersedia "+(Number(selected[key])||0)+" unit)")}}
+}
+function filteredMutations(){const q=($("mutationSearch")?.value||"").toLowerCase();return mutations.filter(m=>[m.type,m.item_code,m.item_name,m.reason,m.notes,m.performed_by_email,roomLabel(m.from_room_id),roomLabel(m.to_room_id)].join(" ").toLowerCase().includes(q))}
+function renderMutations(){if(!$("mutationsTable"))return;updateMutationForm();const arr=filteredMutations();$("mutationsTable").innerHTML=table(["Tanggal","Jenis","Barang","Jumlah","Dari","Ke","Alasan","Petugas"],arr.map(m=>[m.created_at?esc(new Date(m.created_at).toLocaleString("id-ID")):"-",esc(mutationTypeLabel(m.type)),`${esc(m.item_code||"-")}<br><b>${esc(m.item_name||"-")}</b>`,m.quantity,esc(roomLabel(m.from_room_id)||"-"),esc(roomLabel(m.to_room_id)||"-"),esc(m.reason||"-")+(m.notes?`<br><small>${esc(m.notes)}</small>`:""),esc(m.performed_by_email||"-")]));}
+async function saveMutation(e){
+  e.preventDefault();
+  if(!currentUser){setMsg("mutationMsg","Masuk terlebih dahulu.");return}
+  const type=$("mutationType").value,id=$("mutationItem").value,qty=Number($("mutationQty").value),reason=$("mutationReason").value.trim(),notes=$("mutationNotes").value.trim(),item=items.find(i=>i.id===id);
+  if(!item){setMsg("mutationMsg","Pilih barang inventaris yang valid.");return}
+  if(!Number.isInteger(qty)||qty<1){setMsg("mutationMsg","Jumlah harus berupa bilangan bulat minimal 1.");return}
+  if(!reason){setMsg("mutationMsg","Isi alasan, sumber, atau tujuan mutasi.");return}
+  const before={qty:Number(item.qty)||0,good:Number(item.good)||0,minor:Number(item.minor)||0,major:Number(item.major)||0};
+  const updated={...item};let condition=null,toRoom=item.room_id||null,fromRoom=item.room_id||null;
+  if(type==="incoming") {updated.qty=before.qty+qty;updated.good=before.good+qty;condition="good";}
+  else if(type==="outgoing"){
+    condition=$("mutationCondition").value;
+    if(qty>before[condition]){setMsg("mutationMsg",`Jumlah melebihi stok kondisi ${conditionLabel(condition).toLowerCase()} yang tersedia (${before[condition]} unit).`);return}
+    updated[condition]=before[condition]-qty;updated.qty=before.qty-qty;
+  } else {
+    toRoom=$("mutationToRoom").value||null;
+    if(!toRoom){setMsg("mutationMsg","Pilih ruangan tujuan.");return}
+    if(toRoom===fromRoom){setMsg("mutationMsg","Ruangan tujuan sama dengan ruangan saat ini.");return}
+    if(!rooms.some(r=>r.id===toRoom)){setMsg("mutationMsg","Ruangan tujuan tidak ditemukan.");return}
+    updated.room_id=toRoom;
+  }
+  const after={qty:Number(updated.qty)||0,good:Number(updated.good)||0,minor:Number(updated.minor)||0,major:Number(updated.major)||0};
+  const mutation={id:uuid(),type,inventory_id:item.id,item_code:item.code||"",item_name:item.name,quantity:qty,condition,from_room_id:fromRoom,to_room_id:toRoom,reason,notes,performed_by:currentUser.id,performed_by_email:currentUser.email||"",qty_before:before.qty,qty_after:after.qty,good_before:before.good,good_after:after.good,minor_before:before.minor,minor_after:after.minor,major_before:before.major,major_after:after.major,created_at:new Date().toISOString(),created_by:currentUser.id};
+  try{
+    updated.updated_at=new Date().toISOString();updated.updated_by=currentUser.id;updated.sync_state="menunggu sinkronisasi";
+    await cacheRecord("inventory",updated);await queueOp("inventory","upsert",updated);
+    await cacheRecord("mutations",mutation);await queueOp("mutations","upsert",mutation);
+    await localLoad();if(navigator.onLine)await syncQueue();
+    $("mutationForm").reset();$("mutationQty").value=1;updateMutationForm();setMsg("mutationMsg","Mutasi tersimpan. Inventaris utama telah diperbarui dan riwayat mutasi dicatat.",true);
+  }catch(err){console.error(err);setMsg("mutationMsg","Gagal menyimpan mutasi: "+err.message)}
+}
+initMutationUI();
+
 window.addEventListener("online",async()=>{onlineStatus();if(sb&&currentUser){await syncQueue();await fetchRemote()}});
 window.addEventListener("offline",onlineStatus);
 if("serviceWorker" in navigator && location.protocol!=="file:")navigator.serviceWorker.register("./sw.js").catch(console.warn);
