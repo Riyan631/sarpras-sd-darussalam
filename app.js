@@ -310,36 +310,141 @@ function updateMutationForm(){
 }
 function filteredMutations(){const q=($("mutationSearch")?.value||"").toLowerCase();return mutations.filter(m=>[m.type,m.item_code,m.item_name,m.reason,m.notes,m.performed_by_email,roomLabel(m.from_room_id),roomLabel(m.to_room_id)].join(" ").toLowerCase().includes(q))}
 function renderMutations(){if(!$("mutationsTable"))return;updateMutationForm();const arr=filteredMutations();$("mutationsTable").innerHTML=table(["Tanggal","Jenis","Barang","Jumlah","Dari","Ke","Alasan","Petugas"],arr.map(m=>[m.created_at?esc(new Date(m.created_at).toLocaleString("id-ID")):"-",esc(mutationTypeLabel(m.type)),`${esc(m.item_code||"-")}<br><b>${esc(m.item_name||"-")}</b>`,m.quantity,esc(roomLabel(m.from_room_id)||"-"),esc(roomLabel(m.to_room_id)||"-"),esc(m.reason||"-")+(m.notes?`<br><small>${esc(m.notes)}</small>`:""),esc(m.performed_by_email||"-")]));}
-async function saveMutation(e){
+async function saveMutation(e) {
   e.preventDefault();
-  if(!currentUser){setMsg("mutationMsg","Masuk terlebih dahulu.");return}
-  const type=$("mutationType").value,id=$("mutationItem").value,qty=Number($("mutationQty").value),reason=$("mutationReason").value.trim(),notes=$("mutationNotes").value.trim(),item=items.find(i=>i.id===id);
-  if(!item){setMsg("mutationMsg","Pilih barang inventaris yang valid.");return}
-  if(!Number.isInteger(qty)||qty<1){setMsg("mutationMsg","Jumlah harus berupa bilangan bulat minimal 1.");return}
-  if(!reason){setMsg("mutationMsg","Isi alasan, sumber, atau tujuan mutasi.");return}
-  const before={qty:Number(item.qty)||0,good:Number(item.good)||0,minor:Number(item.minor)||0,major:Number(item.major)||0};
-  const updated={...item};let condition=null,toRoom=item.room_id||null,fromRoom=item.room_id||null;
-  if(type==="incoming") {updated.qty=before.qty+qty;updated.good=before.good+qty;condition="good";}
-  else if(type==="outgoing"){
-    condition=$("mutationCondition").value;
-    if(qty>before[condition]){setMsg("mutationMsg",`Jumlah melebihi stok kondisi ${conditionLabel(condition).toLowerCase()} yang tersedia (${before[condition]} unit).`);return}
-    updated[condition]=before[condition]-qty;updated.qty=before.qty-qty;
-  } else {
-    toRoom=$("mutationToRoom").value||null;
-    if(!toRoom){setMsg("mutationMsg","Pilih ruangan tujuan.");return}
-    if(toRoom===fromRoom){setMsg("mutationMsg","Ruangan tujuan sama dengan ruangan saat ini.");return}
-    if(!rooms.some(r=>r.id===toRoom)){setMsg("mutationMsg","Ruangan tujuan tidak ditemukan.");return}
-    updated.room_id=toRoom;
+
+  if (!currentUser) {
+    setMsg("mutationMsg", "Masuk terlebih dahulu.");
+    return;
   }
-  const after={qty:Number(updated.qty)||0,good:Number(updated.good)||0,minor:Number(updated.minor)||0,major:Number(updated.major)||0};
-  const mutation={id:uuid(),type,inventory_id:item.id,item_code:item.code||"",item_name:item.name,quantity:qty,condition,from_room_id:fromRoom,to_room_id:toRoom,reason,notes,performed_by:currentUser.id,performed_by_email:currentUser.email||"",qty_before:before.qty,qty_after:after.qty,good_before:before.good,good_after:after.good,minor_before:before.minor,minor_after:after.minor,major_before:before.major,major_after:after.major,created_at:new Date().toISOString(),created_by:currentUser.id};
-  try{
-    updated.updated_at=new Date().toISOString();updated.updated_by=currentUser.id;updated.sync_state="menunggu sinkronisasi";
-    await cacheRecord("inventory",updated);await queueOp("inventory","upsert",updated);
-    await cacheRecord("mutations",mutation);await queueOp("mutations","upsert",mutation);
-    await localLoad();if(navigator.onLine)await syncQueue();
-    $("mutationForm").reset();$("mutationQty").value=1;updateMutationForm();setMsg("mutationMsg","Mutasi tersimpan. Inventaris utama telah diperbarui dan riwayat mutasi dicatat.",true);
-  }catch(err){console.error(err);setMsg("mutationMsg","Gagal menyimpan mutasi: "+err.message)}
+
+  const type = $("mutationType").value;
+  const id = $("mutationItem").value;
+  const qty = Number($("mutationQty").value);
+  const reason = $("mutationReason").value.trim();
+  const notes = $("mutationNotes").value.trim();
+  const item = items.find(i => i.id === id);
+
+  if (!item) {
+    setMsg("mutationMsg", "Pilih barang inventaris yang valid.");
+    return;
+  }
+  if (!Number.isInteger(qty) || qty < 1) {
+    setMsg("mutationMsg", "Jumlah harus bilangan bulat minimal 1.");
+    return;
+  }
+  if (!reason) {
+    setMsg("mutationMsg", "Isi alasan, sumber, atau tujuan mutasi.");
+    return;
+  }
+
+  const before = {
+    qty: Number(item.qty) || 0,
+    good: Number(item.good) || 0,
+    minor: Number(item.minor) || 0,
+    major: Number(item.major) || 0
+  };
+  const updated = { ...item };
+  let condition = null;
+  let toRoom = item.room_id || null;
+  const fromRoom = item.room_id || null;
+
+  if (type === "incoming") {
+    updated.qty = before.qty + qty;
+    updated.good = before.good + qty;
+    condition = "good";
+  } else if (type === "outgoing") {
+    condition = $("mutationCondition").value;
+    if (!["good", "minor", "major"].includes(condition)) {
+      setMsg("mutationMsg", "Kondisi barang tidak valid.");
+      return;
+    }
+    if (qty > before[condition]) {
+      setMsg("mutationMsg", `Jumlah melebihi stok ${conditionLabel(condition)} yang tersedia (${before[condition]} unit).`);
+      return;
+    }
+    updated[condition] = before[condition] - qty;
+    updated.qty = before.qty - qty;
+  } else if (type === "transfer") {
+    toRoom = $("mutationToRoom").value || null;
+    if (!toRoom) {
+      setMsg("mutationMsg", "Pilih ruangan tujuan.");
+      return;
+    }
+    if (toRoom === fromRoom) {
+      setMsg("mutationMsg", "Ruangan tujuan sama dengan ruangan saat ini.");
+      return;
+    }
+    if (!rooms.some(r => r.id === toRoom)) {
+      setMsg("mutationMsg", "Ruangan tujuan tidak ditemukan.");
+      return;
+    }
+    updated.room_id = toRoom;
+  } else {
+    setMsg("mutationMsg", "Jenis mutasi tidak valid.");
+    return;
+  }
+
+  const after = {
+    qty: Number(updated.qty) || 0,
+    good: Number(updated.good) || 0,
+    minor: Number(updated.minor) || 0,
+    major: Number(updated.major) || 0
+  };
+  if (after.qty !== after.good + after.minor + after.major ||
+      Object.values(after).some(n => !Number.isInteger(n) || n < 0)) {
+    setMsg("mutationMsg", "Perubahan ditolak: jumlah dan kondisi barang tidak konsisten.");
+    return;
+  }
+
+  const mutation = {
+    id: uuid(), type, inventory_id: item.id,
+    item_code: item.code || "", item_name: item.name,
+    quantity: qty, condition, from_room_id: fromRoom, to_room_id: toRoom,
+    reason, notes, performed_by: currentUser.id,
+    performed_by_email: currentUser.email || "",
+    qty_before: before.qty, qty_after: after.qty,
+    good_before: before.good, good_after: after.good,
+    minor_before: before.minor, minor_after: after.minor,
+    major_before: before.major, major_after: after.major,
+    created_at: new Date().toISOString(), created_by: currentUser.id
+  };
+
+  try {
+    updated.updated_at = new Date().toISOString();
+    updated.updated_by = currentUser.id;
+    updated.sync_state = "menunggu sinkronisasi";
+
+    // Simpan kedua perubahan ke cache dan antrean lokal.
+    // Ini belum merupakan transaksi database atomik.
+    await cacheRecord("inventory", updated);
+    await queueOp("inventory", "upsert", updated);
+    await cacheRecord("mutations", mutation);
+    await queueOp("mutations", "upsert", mutation);
+    await localLoad();
+
+    if (navigator.onLine) await syncQueue();
+
+    const queue = await dbAll(QUEUE);
+    const inventoryPending = queue.some(op => op.table === "inventory" && op.row_id === item.id);
+    const mutationPending = queue.some(op => op.table === "mutations" && op.row_id === mutation.id);
+
+    if (!inventoryPending && !mutationPending) {
+      setMsg("mutationMsg", "Antrean lokal kosong untuk kedua operasi. Periksa database untuk memastikan data tersimpan.", true);
+    } else if (inventoryPending && mutationPending) {
+      setMsg("mutationMsg", "Belum tersinkron. Kedua operasi masih dalam antrean. Jangan ulangi mutasi.");
+    } else {
+      setMsg("mutationMsg", "PERINGATAN: status sinkronisasi berbeda. Jangan ulangi mutasi; periksa inventaris, riwayat, dan antrean terlebih dahulu.");
+    }
+
+    $("mutationForm").reset();
+    $("mutationQty").value = 1;
+    updateMutationForm();
+    await updateQueueStatus();
+  } catch (err) {
+    console.error("Kesalahan penyimpanan mutasi:", err);
+    setMsg("mutationMsg", "Terjadi kesalahan. Jangan ulangi mutasi sebelum memeriksa data dan antrean.");
+  }
 }
 initMutationUI();
 
