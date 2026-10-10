@@ -105,12 +105,39 @@ async function syncQueue(){
  await updateQueueStatus();
 }
 async function fetchRemote(){
- if(!sb||!navigator.onLine||!currentUser)return;
- for(const t of ["rooms","inventory","mutations"]){
-   const {data,error}=await sb.from(t).select("*");if(error){console.warn(error.message);continue}
-   const pending=await dbAll(QUEUE);const pendingIds=new Set(pending.filter(op=>op.table===t).map(op=>op.row_id));for(const row of (data||[])){if(pendingIds.has(row.id))continue;row.sync_state="tersinkron";await cacheRecord(t,row)}
- }
- await localLoad();
+  if(!sb||!navigator.onLine||!currentUser)return;
+
+  for(const t of ["rooms","inventory","mutations"]){
+    const {data,error}=await sb.from(t).select("*");
+    // Jika server gagal dibaca, jangan mengubah cache lokal tabel ini.
+    if(error){console.warn("Gagal membaca "+t+":",error.message);continue}
+
+    const queue=await dbAll(QUEUE);
+    const pendingIds=new Set(
+      queue.filter(op=>op.table===t).map(op=>op.row_id)
+    );
+    const remoteRows=data||[];
+    const remoteIds=new Set(remoteRows.map(row=>row.id));
+
+    // Simpan/perbarui data yang benar-benar ada di Supabase.
+    for(const row of remoteRows){
+      if(pendingIds.has(row.id))continue;
+      await cacheRecord(t,{...row,sync_state:"tersinkron"});
+    }
+
+    // Untuk riwayat mutasi, hapus cache lama yang tidak ada di server,
+    // kecuali baris yang masih menunggu sinkronisasi.
+    if(t==="mutations"){
+      const localRows=(await dbAll(STORE)).filter(record=>record.table==="mutations");
+      for(const record of localRows){
+        const rowId=record.data?.id;
+        if(rowId&&!remoteIds.has(rowId)&&!pendingIds.has(rowId)){
+          await removeCached("mutations",rowId);
+        }
+      }
+    }
+  }
+  await localLoad();
 }
 async function initAuth(){
  if(!isConfigured()){ $("setupNotice").classList.remove("hidden");$("loginMsg").textContent="Konfigurasi Supabase belum diisi.";return}
