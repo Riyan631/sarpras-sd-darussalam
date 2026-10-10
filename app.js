@@ -318,9 +318,16 @@ async function saveMutation(e) {
     return;
   }
 
+  if (!sb || !navigator.onLine) {
+    setMsg("mutationMsg", "Mutasi memerlukan koneksi internet. Tidak ada perubahan stok yang dikirim.");
+    return;
+  }
+
   const type = $("mutationType").value;
   const id = $("mutationItem").value;
   const qty = Number($("mutationQty").value);
+  const condition = type === "outgoing" ? $("mutationCondition").value : null;
+  const toRoom = type === "transfer" ? ($("mutationToRoom").value || null) : null;
   const reason = $("mutationReason").value.trim();
   const notes = $("mutationNotes").value.trim();
   const item = items.find(i => i.id === id);
@@ -330,48 +337,23 @@ async function saveMutation(e) {
     return;
   }
   if (!Number.isInteger(qty) || qty < 1) {
-    setMsg("mutationMsg", "Jumlah harus bilangan bulat minimal 1.");
+    setMsg("mutationMsg", "Jumlah harus berupa bilangan bulat minimal 1.");
     return;
   }
   if (!reason) {
     setMsg("mutationMsg", "Isi alasan, sumber, atau tujuan mutasi.");
     return;
   }
-
-  const before = {
-    qty: Number(item.qty) || 0,
-    good: Number(item.good) || 0,
-    minor: Number(item.minor) || 0,
-    major: Number(item.major) || 0
-  };
-  const updated = { ...item };
-  let condition = null;
-  let toRoom = item.room_id || null;
-  const fromRoom = item.room_id || null;
-
-  if (type === "incoming") {
-    updated.qty = before.qty + qty;
-    updated.good = before.good + qty;
-    condition = "good";
-  } else if (type === "outgoing") {
-    condition = $("mutationCondition").value;
-    if (!["good", "minor", "major"].includes(condition)) {
-      setMsg("mutationMsg", "Kondisi barang tidak valid.");
-      return;
-    }
-    if (qty > before[condition]) {
-      setMsg("mutationMsg", `Jumlah melebihi stok ${conditionLabel(condition)} yang tersedia (${before[condition]} unit).`);
-      return;
-    }
-    updated[condition] = before[condition] - qty;
-    updated.qty = before.qty - qty;
-  } else if (type === "transfer") {
-    toRoom = $("mutationToRoom").value || null;
+  if (type === "outgoing" && !["good", "minor", "major"].includes(condition)) {
+    setMsg("mutationMsg", "Pilih kondisi barang keluar yang valid.");
+    return;
+  }
+  if (type === "transfer") {
     if (!toRoom) {
       setMsg("mutationMsg", "Pilih ruangan tujuan.");
       return;
     }
-    if (toRoom === fromRoom) {
+    if (toRoom === (item.room_id || null)) {
       setMsg("mutationMsg", "Ruangan tujuan sama dengan ruangan saat ini.");
       return;
     }
@@ -379,71 +361,45 @@ async function saveMutation(e) {
       setMsg("mutationMsg", "Ruangan tujuan tidak ditemukan.");
       return;
     }
-    updated.room_id = toRoom;
-  } else {
-    setMsg("mutationMsg", "Jenis mutasi tidak valid.");
+    if (qty !== (Number(item.qty) || 0)) {
+      setMsg("mutationMsg", "Pemindahan berlaku untuk seluruh unit dalam satu data barang. Masukkan jumlah total barang.");
+      return;
+    }
+  }
+  if (type === "outgoing" && qty > (Number(item[condition]) || 0)) {
+    setMsg("mutationMsg", `Jumlah melebihi stok kondisi ${conditionLabel(condition).toLowerCase()} yang tersedia (${Number(item[condition]) || 0} unit).`);
     return;
   }
 
-  const after = {
-    qty: Number(updated.qty) || 0,
-    good: Number(updated.good) || 0,
-    minor: Number(updated.minor) || 0,
-    major: Number(updated.major) || 0
-  };
-  if (after.qty !== after.good + after.minor + after.major ||
-      Object.values(after).some(n => !Number.isInteger(n) || n < 0)) {
-    setMsg("mutationMsg", "Perubahan ditolak: jumlah dan kondisi barang tidak konsisten.");
-    return;
-  }
-
-  const mutation = {
-    id: uuid(), type, inventory_id: item.id,
-    item_code: item.code || "", item_name: item.name,
-    quantity: qty, condition, from_room_id: fromRoom, to_room_id: toRoom,
-    reason, notes, performed_by: currentUser.id,
-    performed_by_email: currentUser.email || "",
-    qty_before: before.qty, qty_after: after.qty,
-    good_before: before.good, good_after: after.good,
-    minor_before: before.minor, minor_after: after.minor,
-    major_before: before.major, major_after: after.major,
-    created_at: new Date().toISOString(), created_by: currentUser.id
-  };
+  const submitButton = $("mutationForm").querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
 
   try {
-    updated.updated_at = new Date().toISOString();
-    updated.updated_by = currentUser.id;
-    updated.sync_state = "menunggu sinkronisasi";
+    const { data, error } = await sb.rpc("record_inventory_mutation", {
+      p_inventory_id: id,
+      p_type: type,
+      p_quantity: qty,
+      p_condition: condition,
+      p_to_room_id: toRoom,
+      p_reason: reason,
+      p_notes: notes
+    });
 
-    // Simpan kedua perubahan ke cache dan antrean lokal.
-    // Ini belum merupakan transaksi database atomik.
-    await cacheRecord("inventory", updated);
-    await queueOp("inventory", "upsert", updated);
-    await cacheRecord("mutations", mutation);
-    await queueOp("mutations", "upsert", mutation);
+    if (error) throw error;
+
+    // Muat ulang data dari Supabase. Jangan membuat antrean perubahan kedua.
+    await fetchRemote();
     await localLoad();
-
-    if (navigator.onLine) await syncQueue();
-
-    const queue = await dbAll(QUEUE);
-    const inventoryPending = queue.some(op => op.table === "inventory" && op.row_id === item.id);
-    const mutationPending = queue.some(op => op.table === "mutations" && op.row_id === mutation.id);
-
-    if (!inventoryPending && !mutationPending) {
-      setMsg("mutationMsg", "Antrean lokal kosong untuk kedua operasi. Periksa database untuk memastikan data tersimpan.", true);
-    } else if (inventoryPending && mutationPending) {
-      setMsg("mutationMsg", "Belum tersinkron. Kedua operasi masih dalam antrean. Jangan ulangi mutasi.");
-    } else {
-      setMsg("mutationMsg", "PERINGATAN: status sinkronisasi berbeda. Jangan ulangi mutasi; periksa inventaris, riwayat, dan antrean terlebih dahulu.");
-    }
 
     $("mutationForm").reset();
     $("mutationQty").value = 1;
     updateMutationForm();
-    await updateQueueStatus();
+    setMsg("mutationMsg", data?.message || "Mutasi dan riwayat berhasil disimpan oleh Supabase.", true);
   } catch (err) {
-    console.error("Kesalahan penyimpanan mutasi:", err);
-    setMsg("mutationMsg", "Terjadi kesalahan. Jangan ulangi mutasi sebelum memeriksa data dan antrean.");
+    console.error("Kesalahan mutasi:", err);
+    setMsg("mutationMsg", "Mutasi tidak dapat dikonfirmasi oleh Supabase. Jangan ulangi dulu; periksa inventaris dan riwayat mutasi. Detail: " + (err?.message || "Kesalahan tidak diketahui."));
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
 }
 initMutationUI();
