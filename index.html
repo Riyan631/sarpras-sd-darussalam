@@ -308,6 +308,36 @@ header .brand .app-school-logo img {
 }
 </style>
 
+
+<style>
+/* Perbaikan tepat untuk grafik kondisi yang dirender app.js */
+#dashboardDetails .dash-line {
+  display: grid !important;
+  grid-template-columns: 82px minmax(0, 1fr) max-content !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  width: 100% !important;
+}
+#dashboardDetails .dash-line > b {
+  display: block !important;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
+  text-align: right !important;
+  min-width: max-content !important;
+  line-height: 1.3 !important;
+}
+#dashboardDetails .dash-track { min-width: 0 !important; width: 100% !important; }
+#dashboardDetails .dash-card:nth-child(1) { background: linear-gradient(135deg,#eff6ff,#fff) !important; border-color:#bfdbfe !important; }
+#dashboardDetails .dash-card:nth-child(2) { background: linear-gradient(135deg,#ecfdf5,#fff) !important; border-color:#a7f3d0 !important; }
+#dashboardDetails .dash-card:nth-child(3) { background: linear-gradient(135deg,#fff7ed,#fff) !important; border-color:#fed7aa !important; }
+#dashboardDetails .dash-card:nth-child(4) { background: linear-gradient(135deg,#f5f3ff,#fff) !important; border-color:#ddd6fe !important; }
+#dashboardDetails .dash-good { background:#16834a !important; }
+#dashboardDetails .dash-minor { background:#e3a326 !important; }
+#dashboardDetails .dash-major { background:#c94242 !important; }
+@media(max-width:700px) { #dashboardDetails .dash-line { grid-template-columns:72px minmax(25px,1fr) max-content !important; column-gap:6px !important; } }
+</style>
+
 </head>
 
 <body>
