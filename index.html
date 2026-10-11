@@ -11,40 +11,7 @@
 <title>SARPRAS SD Darussalam</title>
 
 <style>
-/* Kolom tanda tangan hanya ditampilkan pada hasil cetak */
-.report-signatures {
-  display: none;
-}
-
-@media print {
-  .report-signatures {
-    display: flex !important;
-    justify-content: space-between;
-    gap: 30px;
-    margin: 35px 10px 0;
-    color: #000 !important;
-    font-size: 11pt;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  .report-signatures .signature-box {
-    width: 48%;
-    text-align: center;
-  }
-
-  .report-signatures p {
-    margin: 5px 0;
-  }
-
-  .report-signatures .signature-space {
-    height: 65px;
-  }
-
-  .report-signatures strong {
-    font-weight: 700;
-  }
-}
+/* Blok tanda tangan laporan dibuat satu kali oleh app.js. */
 </style>
 </head>
 
@@ -227,23 +194,6 @@
       <div id="reportSummary"></div>
       <div id="reportTable" class="tablewrap"></div>
 
-      <div class="report-signatures">
-        <div class="signature-box">
-          <p>Mengetahui,</p>
-          <p><strong>Kepala Sekolah</strong></p>
-          <div class="signature-space"></div>
-          <p><strong>........................................</strong></p>
-          <p>NIP. ....................................</p>
-        </div>
-        <div class="signature-box">
-          <p>Palangkaraya, <span id="reportSignatureDate"></span></p>
-          <p><strong>Pengelola Sarpras</strong></p>
-          <div class="signature-space"></div>
-          <p><strong>........................................</strong></p>
-          <p>NIP. ....................................</p>
-        </div>
-      </div>
-
       <div class="actions no-print">
         <button class="btn" id="printReport">Cetak Laporan</button>
         <button class="btn light" id="exportReport">Ekspor CSV untuk Excel</button>
@@ -297,17 +247,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./app.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const dateElement = document.getElementById("reportSignatureDate");
-  if (dateElement) {
-    dateElement.textContent = new Intl.DateTimeFormat("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric"
-    }).format(new Date());
-  }
-});
-</script>
+
 </body>
 </html>
