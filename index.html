@@ -194,150 +194,6 @@ header .brand .app-school-logo img {
 }
 </style>
 
-
-
-<style>
-/* Perapian angka: Dashboard, tabel Inventaris, dan Rekap Kondisi Barang */
-#view-dashboard .stat {
-  text-align: center;
-}
-#view-dashboard .stat strong,
-#view-dashboard .stat .number,
-#view-dashboard .condition-card strong {
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-#view-dashboard .condition-card {
-  text-align: center;
-}
-/* Kolom angka pada tabel inventaris dan daftar barang terbaru */
-#itemsTable table th:nth-child(4),
-#itemsTable table td:nth-child(4),
-#recentTable table th:nth-child(4),
-#recentTable table td:nth-child(4) {
-  text-align: center;
-  vertical-align: middle;
-  font-variant-numeric: tabular-nums;
-}
-/* Kolom angka pada tabel Rekap Kondisi Barang */
-#reportDamagedTable table th:nth-child(n+4):nth-child(-n+7),
-#reportDamagedTable table td:nth-child(n+4):nth-child(-n+7),
-#reportTable table th:nth-child(1),
-#reportTable table td:nth-child(1),
-#reportTable table th:nth-child(n+6):nth-child(-n+10),
-#reportTable table td:nth-child(n+6):nth-child(-n+10) {
-  text-align: center;
-  vertical-align: middle;
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 760px) {
-  #view-dashboard .stats,
-  #view-dashboard .condition-summary {
-    align-items: stretch;
-  }
-}
-</style>
-
-
-<style>
-/* Penyempurnaan grafik dan warna kartu Dashboard */
-#view-dashboard .condition-row,
-#view-dashboard .chart-row,
-#view-dashboard .bar-row,
-#view-dashboard .condition-line,
-#view-dashboard .graph-row {
-  display: grid !important;
-  grid-template-columns: 82px minmax(0,1fr) 58px !important;
-  align-items: center !important;
-  column-gap: 8px !important;
-  width: 100%;
-}
-#view-dashboard .condition-row > :last-child,
-#view-dashboard .chart-row > :last-child,
-#view-dashboard .bar-row > :last-child,
-#view-dashboard .condition-line > :last-child,
-#view-dashboard .graph-row > :last-child {
-  white-space: nowrap !important;
-  text-align: right !important;
-  overflow: visible !important;
-  word-break: keep-all !important;
-}
-#view-dashboard .condition-row .bar,
-#view-dashboard .chart-row .bar,
-#view-dashboard .bar-row .bar,
-#view-dashboard .condition-line .bar,
-#view-dashboard .graph-row .bar,
-#view-dashboard .progress,
-#view-dashboard .progress-track {
-  min-width: 0;
-  width: 100%;
-}
-/* Warna kartu berbeda agar tiap bagian mudah dibedakan */
-#view-dashboard .panel:nth-of-type(1) {
-  background: linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);
-  border-color: #bfdbfe;
-}
-#view-dashboard .panel:nth-of-type(2) {
-  background: linear-gradient(135deg,#ecfdf5 0%,#ffffff 100%);
-  border-color: #a7f3d0;
-}
-#view-dashboard .panel:nth-of-type(3) {
-  background: linear-gradient(135deg,#fff7ed 0%,#ffffff 100%);
-  border-color: #fed7aa;
-}
-#view-dashboard .panel:nth-of-type(4) {
-  background: linear-gradient(135deg,#f5f3ff 0%,#ffffff 100%);
-  border-color: #ddd6fe;
-}
-#view-dashboard .condition-card:nth-child(4n+1) {background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
-#view-dashboard .condition-card:nth-child(4n+2) {background:#ecfdf5;border-color:#a7f3d0;color:#047857}
-#view-dashboard .condition-card:nth-child(4n+3) {background:#fff7ed;border-color:#fed7aa;color:#c2410c}
-#view-dashboard .condition-card:nth-child(4n+4) {background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}
-#view-dashboard .panel h2 {color:#173b2f}
-@media(max-width:520px) {
-  #view-dashboard .condition-row,
-  #view-dashboard .chart-row,
-  #view-dashboard .bar-row,
-  #view-dashboard .condition-line,
-  #view-dashboard .graph-row {
-    grid-template-columns: 72px minmax(0,1fr) 58px !important;
-    column-gap: 6px !important;
-  }
-}
-</style>
-
-
-<style>
-/* Perbaikan tepat untuk grafik kondisi yang dirender app.js */
-#dashboardDetails .dash-line {
-  display: grid !important;
-  grid-template-columns: 82px minmax(0, 1fr) max-content !important;
-  align-items: center !important;
-  column-gap: 8px !important;
-  width: 100% !important;
-}
-#dashboardDetails .dash-line > b {
-  display: block !important;
-  white-space: nowrap !important;
-  overflow-wrap: normal !important;
-  word-break: keep-all !important;
-  text-align: right !important;
-  min-width: max-content !important;
-  line-height: 1.3 !important;
-}
-#dashboardDetails .dash-track { min-width: 0 !important; width: 100% !important; }
-#dashboardDetails .dash-card:nth-child(1) { background: linear-gradient(135deg,#eff6ff,#fff) !important; border-color:#bfdbfe !important; }
-#dashboardDetails .dash-card:nth-child(2) { background: linear-gradient(135deg,#ecfdf5,#fff) !important; border-color:#a7f3d0 !important; }
-#dashboardDetails .dash-card:nth-child(3) { background: linear-gradient(135deg,#fff7ed,#fff) !important; border-color:#fed7aa !important; }
-#dashboardDetails .dash-card:nth-child(4) { background: linear-gradient(135deg,#f5f3ff,#fff) !important; border-color:#ddd6fe !important; }
-#dashboardDetails .dash-good { background:#16834a !important; }
-#dashboardDetails .dash-minor { background:#e3a326 !important; }
-#dashboardDetails .dash-major { background:#c94242 !important; }
-@media(max-width:700px) { #dashboardDetails .dash-line { grid-template-columns:72px minmax(25px,1fr) max-content !important; column-gap:6px !important; } }
-</style>
-
 </head>
 
 <body>
@@ -575,6 +431,33 @@ header .brand .app-school-logo img {
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./app.js"></script>
+
+
+<script>
+/* Pemulihan tampilan menu Kelola Admin untuk Admin Utama.
+   Tidak mengubah QR, grafik Dashboard, atau logika database. */
+(function () {
+  function updateAdminMenu() {
+    const roleEl = document.getElementById('roleLabel');
+    const adminTabs = document.querySelectorAll('.admin-only[data-view="admins"]');
+    if (!roleEl || !adminTabs.length) return;
+    const role = (roleEl.textContent || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    const isMainAdmin = role === 'admin utama' || role === 'adminutama' || role === 'admin utama ';
+    adminTabs.forEach(function (tab) {
+      tab.classList.toggle('hidden', !isMainAdmin);
+      tab.setAttribute('aria-hidden', isMainAdmin ? 'false' : 'true');
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    updateAdminMenu();
+    const roleEl = document.getElementById('roleLabel');
+    if (roleEl && window.MutationObserver) {
+      new MutationObserver(updateAdminMenu).observe(roleEl, { childList: true, characterData: true, subtree: true });
+    }
+    document.addEventListener('click', function () { setTimeout(updateAdminMenu, 0); }, true);
+  });
+})();
+</script>
 
 </body>
 </html>
