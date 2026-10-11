@@ -68,4 +68,32 @@
   a[href]::after {
     content: none !important;
   }
+
+/* Dashboard: pusatkan angka ringkasan */
+.stats .stat {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
+
+.stats .stat strong,
+.stats .stat span {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+/* Dashboard: warna tabel */
+#dashboard th {
+  background: #dcece2;
+  color: #123c2f;
+}
+
+#dashboard tbody tr:nth-child(even) {
+  background: #f3f8f5;
+}
+
+#dashboard tbody tr:hover {
+  background: #e8f3ec;
+}
+
