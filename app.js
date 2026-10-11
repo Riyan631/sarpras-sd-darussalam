@@ -181,6 +181,51 @@ function reportItems(){
     (!roomFilter||(i.room_id||"")===roomFilter)
   );
 }
+function reportFilterLabels(){
+  const cat=$("reportCategory")?.selectedOptions?.[0]?.textContent||"Semua kategori";
+  const condLabel=$("reportCondition")?.selectedOptions?.[0]?.textContent||"Semua kondisi";
+  const roomSelect=$("reportRoomFilter");
+  const room=roomSelect?.selectedOptions?.[0]?.textContent||"Semua ruangan";
+  return {cat,condLabel,room};
+}
+function decorateReportOutput(){
+  const summary=$("reportSummary"), reportTableEl=$("reportTable");
+  if(!summary||!reportTableEl)return;
+  const {cat,condLabel,room}=reportFilterLabels();
+  const today=new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+  summary.querySelectorAll(".report-print-header").forEach(el=>el.remove());
+  document.querySelectorAll("#reportSignatureBlock").forEach(el=>el.remove());
+  summary.insertAdjacentHTML("afterbegin", `
+    <section class="report-print-header">
+      <div class="report-school-name">SD ISLAM DARUSSALAM PALANGKARAYA</div>
+      <div class="report-school-subtitle">LAPORAN SARANA DAN PRASARANA SEKOLAH</div>
+      <div class="report-header-rule"></div>
+      <h2>LAPORAN INVENTARIS BARANG</h2>
+      <p class="report-header-date">Tanggal laporan: <b>${esc(today)}</b></p>
+      <div class="report-filter-summary"><span>Kategori: <b>${esc(cat)}</b></span><span>Kondisi: <b>${esc(condLabel)}</b></span><span>Ruangan: <b>${esc(room)}</b></span></div>
+    </section>`);
+  reportTableEl.insertAdjacentHTML("afterend", `
+    <section id="reportSignatureBlock" class="report-signatures">
+      <div class="report-sign-date">Palangkaraya, ${esc(today)}</div>
+      <div class="report-sign-columns">
+        <div class="report-sign-column"><p>Mengetahui,</p><p><b>Kepala Sekolah</b></p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
+        <div class="report-sign-column"><p>Petugas Inventaris</p><p><b>Pengelola Sarana dan Prasarana</b></p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
+      </div>
+    </section>`);
+  if(!$("reportPrintStyles")){
+    const style=document.createElement("style");style.id="reportPrintStyles";style.textContent=`
+      .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 12px;color:#172b24}
+      .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:8px 0 10px}
+      .report-print-header h2{font-size:16px;margin:0 0 6px}.report-header-date{margin:0 0 7px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;font-size:11px}
+      .report-signatures{margin:8px 0 0;color:#111;display:block;break-inside:avoid!important;page-break-inside:avoid!important}.report-sign-date{text-align:right;margin-bottom:4px}
+      .report-sign-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;break-inside:avoid!important;page-break-inside:avoid!important}.report-sign-column{text-align:center;min-width:0;break-inside:avoid!important;page-break-inside:avoid!important}
+      .report-sign-column p{margin:2px 0}.report-sign-space{height:24px}.report-sign-name{font-weight:700}
+      @page{size:A4 portrait;margin:12mm}
+      @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}body *{visibility:hidden!important}#view-reports,#view-reports *{visibility:visible!important}#view-reports{display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}#view-reports .no-print,#view-reports button,#view-reports input,#view-reports select{display:none!important}#view-reports .card{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}#view-reports h2{margin-top:0!important}}
+    `;document.head.appendChild(style);
+  }
+}
+
 function renderReport(){
   if($("reportRoomFilter")?.value==="__unassigned__"){renderReportUnassigned();return;}
   const arr=reportItems();
