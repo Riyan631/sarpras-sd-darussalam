@@ -571,19 +571,23 @@ async function printAllItemQR(){
     return;
   }
 
-  // Urutkan berdasarkan kategori, lalu kode inventaris agar kode INV tetap berurutan.
+  // Kelompokkan berdasarkan kategori DAN nama/jenis barang agar meja dan kursi terpisah.
+  // Kode inventaris tetap diurutkan secara natural di dalam tiap kelompok.
   const sortedItems = [...selectedItems].sort((a,b) => {
     const ca = String(a.category || "Lainnya").localeCompare(String(b.category || "Lainnya"), "id");
     if (ca) return ca;
+    const na = String(a.name || "Barang tanpa nama").localeCompare(String(b.name || "Barang tanpa nama"), "id");
+    if (na) return na;
     return String(a.code || "").localeCompare(String(b.code || ""), "id", {numeric:true});
   });
   const sections = [];
-  let currentCategory = null;
+  let currentGroup = null;
+  let currentHeading = null;
   let sectionLabels = [];
 
   const flushSection = () => {
     if (sectionLabels.length) {
-      sections.push(`<section class="qr-group"><h3>${esc(currentCategory || "Lainnya")}</h3><div class="labels">${sectionLabels.join("")}</div></section>`);
+      sections.push(`<section class="qr-group"><h3>${esc(currentHeading || "Lainnya")}</h3><div class="labels">${sectionLabels.join("")}</div></section>`);
       sectionLabels = [];
     }
   };
@@ -591,9 +595,12 @@ async function printAllItemQR(){
   for (const row of sortedItems) {
     if (!row || !row.id) continue;
     const category = String(row.category || "Lainnya");
-    if (currentCategory !== category) {
+    const itemName = String(row.name || "Barang tanpa nama");
+    const groupKey = `${category}::${itemName}`;
+    if (currentGroup !== groupKey) {
       flushSection();
-      currentCategory = category;
+      currentGroup = groupKey;
+      currentHeading = `${category} — ${itemName}`;
     }
 
     const holder = document.createElement("div");
