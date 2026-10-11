@@ -559,7 +559,71 @@ function renderQRRoomItems(){const target=$("qrRoomItems"),summary=$("qrRoomSumm
 function populateInspectionTargets(){const type=$("inspectTargetType")?.value||"item",el=$("inspectTarget");if(!el)return;const arr=type==="room"?rooms:items;el.innerHTML='<option value="">Pilih data</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc(type==="room"?x.name:((x.code||"Tanpa kode")+" — "+x.name))}</option>`).join("");if(type==="item"){$("inspectQty").value=1}}
 async function makeSelectedQR(){const id=$("qrTarget")?.value||"",out=$("qrOutput");if(out)out.innerHTML="";if(!id){setMsg("qrMsg","Pilih barang pada daftar terlebih dahulu.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const row=items.find(x=>String(x.id)===String(id));if(!row){setMsg("qrMsg","Barang tidak ditemukan. Pilih ulang ruangan dan barang.");populateQRRoomFilter();populateQRTargets();renderQRRoomItems();return}const payload=qrPayload("item",id);const box=document.createElement("div");box.style.cssText="display:inline-block;padding:16px;border:1px solid #ddd;border-radius:10px;text-align:center;background:white;color:#111";const canvas=document.createElement("div");box.appendChild(canvas);const title=document.createElement("b");title.textContent=(row.code?row.code+" — ":"")+row.name;box.appendChild(title);out.appendChild(box);try{new QRCode(canvas,{text:payload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});window._sarprasCurrentQR={type:"item",id,payload,label:title.textContent};setMsg("qrMsg","QR barang berhasil dibuat. QR siap dicetak.",true)}catch(err){console.error(err);setMsg("qrMsg","QR gagal dibuat: "+(err.message||err))}}
 function printSelectedQR(){const out=$("qrOutput");if(!out?.querySelector("canvas, img")){setMsg("qrMsg","Buat QR terlebih dahulu.");return}printQRMarkup(out.innerHTML,"Label QR SARPRAS")}
-async function printAllItemQR(){const selectedItems=qrFilteredItems();if(!selectedItems.length){setMsg("qrMsg","Tidak ada barang pada ruangan yang dipilih. Periksa data ruangan pada menu Inventaris.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const html=[];for(const row of selectedItems){const holder=document.createElement("div");try{new QRCode(holder,{text:qrPayload("item",row.id),width:120,height:120,correctLevel:QRCode.CorrectLevel.M});await new Promise(r=>setTimeout(r,30));const image=holder.querySelector("img")?.src||holder.querySelector("canvas")?.toDataURL("image/png")||"";if(image)html.push(`<div class="label"><img src="${image}" alt="QR"><b>${esc(row.code||"Tanpa kode")}</b><span>${esc(row.name||"")}</span><small>${esc(roomLabel(row.room_id)||"Belum ditentukan")}</small><small>ID data: ${esc(String(row.id||"").slice(-8))}</small></div>`)}catch(err){console.error("Gagal membuat QR untuk",row,err)}}if(!html.length){setMsg("qrMsg","QR tidak berhasil dibuat. Periksa koneksi generator QR lalu coba lagi.");return}const roomId=$("qrRoomFilter")?.value||"";const room=rooms.find(r=>String(r.id)===String(roomId));printQRMarkup(html.join(""),"Label QR SARPRAS"+(room?" — "+room.name:" — Semua Ruangan"),true);setMsg("qrMsg",`${html.length} label QR disiapkan untuk dicetak.`,true)}
+async function printAllItemQR(){
+  const selectedItems = qrFilteredItems();
+  if (!selectedItems.length) {
+    setMsg("qrMsg", "Tidak ada barang pada ruangan yang dipilih. Periksa data ruangan pada menu Inventaris.");
+    return;
+  }
+  const ok = await loadQRCodeLibrary();
+  if (!ok) {
+    setMsg("qrMsg", "Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");
+    return;
+  }
+  const html = [];
+  // Satu label untuk SETIAP baris inventaris; nama yang sama tidak digabung.
+  for (const row of selectedItems) {
+    if (!row || !row.id) continue;
+    const holder = document.createElement("div");
+    try {
+      new QRCode(holder, {
+        text: qrPayload("item", String(row.id)),
+        width: 120,
+        height: 120,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      // qrcodejs biasanya membuat canvas; gunakan itu langsung agar tidak
+      // bergantung pada waktu pemuatan gambar atau menghilangkan label.
+      let image = "";
+      const canvas = holder.querySelector("canvas");
+      if (canvas) {
+        image = canvas.toDataURL("image/png");
+      } else {
+        const img = holder.querySelector("img");
+        if (img) {
+          if (!img.complete) {
+            await new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }
+          image = img.src || "";
+        }
+      }
+      if (!image) {
+        console.warn("QR tidak menghasilkan gambar untuk baris inventaris", row.id);
+        continue;
+      }
+      html.push(
+        `<div class="label"><img src="${image}" alt="QR"><b>${esc(row.code || "Tanpa kode")}</b><span>${esc(row.name || "")}</span><small>${esc(roomLabel(row.room_id) || "Belum ditentukan")}</small></div>`
+      );
+    } catch (err) {
+      console.error("Gagal membuat QR untuk baris inventaris", row.id, err);
+    }
+  }
+  if (!html.length) {
+    setMsg("qrMsg", "QR tidak berhasil dibuat. Periksa koneksi generator QR lalu coba lagi.");
+    return;
+  }
+  const roomId = $("qrRoomFilter")?.value || "";
+  const room = rooms.find(r => String(r.id) === String(roomId));
+  printQRMarkup(
+    html.join(""),
+    "Label QR SARPRAS" + (room ? " — " + room.name : " — Semua Ruangan"),
+    true
+  );
+  setMsg("qrMsg", `${html.length} label QR disiapkan untuk dicetak (satu label per baris barang).`, true);
+}
 function printQRMarkup(html,title,grid=false){const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak QR.");return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:12px}.labels{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.label{border:1px solid #aaa;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:5px;break-inside:avoid;text-align:center;font-size:12px}.label img{width:120px;height:120px;object-fit:contain} @media print{body{padding:0}}</style></head><body><h2>${esc(title)}</h2><div class="${grid?"labels":""}">${html}</div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
 async function saveInspection(e){e.preventDefault();if(!currentUser){setMsg("inspectionMsg","Masuk terlebih dahulu.");return}const type=$("inspectTargetType").value,id=$("inspectTarget").value,qty=Number($("inspectQty").value);if(!id){setMsg("inspectionMsg","Pilih barang atau ruangan.");return}if(!Number.isInteger(qty)||qty<0){setMsg("inspectionMsg","Jumlah ditemukan harus bilangan bulat minimal 0.");return}const isRoom=type==="room",target=(isRoom?rooms:items).find(x=>x.id===id);if(!target){setMsg("inspectionMsg","Data target tidak ditemukan.");return}const now=new Date().toISOString();const row={id:uuid(),target_type:type,target_id:id,item_id:isRoom?null:id,room_id:isRoom?id:(target.room_id||null),item_name:isRoom?"":target.name||"",item_code:isRoom?"":target.code||"",room_name:isRoom?target.name||"":roomLabel(target.room_id)||"",result:$("inspectResult").value,condition:$("inspectCondition").value,found_qty:qty,notes:$("inspectNotes").value.trim(),performed_by:currentUser.id,performed_by_email:currentUser.email||"",inspected_at:now,created_at:now};try{await cacheRecord("inventory_inspections",row);await queueOp("inventory_inspections","upsert",row);if(navigator.onLine)await syncQueue();await localLoad();$("inspectNotes").value="";setMsg("inspectionMsg",navigator.onLine?"Pemeriksaan disimpan. Periksa indikator sinkronisasi untuk memastikan pengiriman ke server.":"Pemeriksaan disimpan di perangkat dan menunggu koneksi.",true)}catch(err){console.error(err);setMsg("inspectionMsg","Gagal menyimpan pemeriksaan: "+(err.message||err))}}
 function inspectionResultLabel(v){return ({sesuai:"Sesuai",rusak_ringan:"Rusak ringan",rusak_berat:"Rusak berat",tidak_ditemukan:"Tidak ditemukan",jumlah_tidak_sesuai:"Jumlah tidak sesuai",perlu_perbaikan:"Perlu perbaikan"})[v]||v||"-"}
