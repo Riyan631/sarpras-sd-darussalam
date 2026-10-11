@@ -191,7 +191,11 @@ function decorateReportOutput(){
   if(!summary||!reportTableEl)return;
   const {cat,condLabel,room}=reportFilterLabels();
   const today=new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+
+  // Bersihkan elemen cetak lama sebelum membangun ulang agar tidak berlipat.
   summary.querySelectorAll(".report-print-header").forEach(el=>el.remove());
+  document.querySelectorAll("#reportSignatureBlock").forEach(el=>el.remove());
+
   summary.insertAdjacentHTML("afterbegin", `
     <section class="report-print-header">
       <div class="report-school-mark">SD</div>
@@ -202,22 +206,39 @@ function decorateReportOutput(){
       <p class="report-header-date">Tanggal laporan: <b>${esc(today)}</b></p>
       <div class="report-filter-summary"><span>Kategori: <b>${esc(cat)}</b></span><span>Kondisi: <b>${esc(condLabel)}</b></span><span>Ruangan: <b>${esc(room)}</b></span></div>
     </section>`);
-  document.querySelectorAll("#reportSignatureBlock").forEach(el=>el.remove());
+
   reportTableEl.insertAdjacentHTML("afterend", `
     <section id="reportSignatureBlock" class="report-signatures">
       <div class="report-sign-date">Palangkaraya, ${esc(today)}</div>
-      <div class="report-sign-grid">
-        <div><p>Mengetahui,</p><p>Kepala Sekolah</p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
-        <div><p>Petugas Inventaris</p><p>Pengelola Sarana dan Prasarana</p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
-      </div>
+      <table class="report-sign-table" role="presentation">
+        <tbody><tr>
+          <td>
+            <p>Mengetahui,</p><p><b>Kepala Sekolah</b></p>
+            <div class="report-sign-space"></div>
+            <p class="report-sign-name">(........................................)</p>
+            <p>NIP. ....................................</p>
+          </td>
+          <td>
+            <p>Petugas Inventaris</p><p><b>Pengelola Sarana dan Prasarana</b></p>
+            <div class="report-sign-space"></div>
+            <p class="report-sign-name">(........................................)</p>
+            <p>NIP. ....................................</p>
+          </td>
+        </tr></tbody>
+      </table>
     </section>`);
+
   if(!$("reportPrintStyles")){
     const style=document.createElement("style");style.id="reportPrintStyles";style.textContent=`
       .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 18px;color:#172b24}
       .report-school-mark{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:2px solid #173f32;border-radius:50%;font-weight:800;margin-bottom:6px}
       .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:10px 0 12px}
       .report-print-header h2{font-size:16px;margin:0 0 7px}.report-header-date{margin:0 0 8px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:11px}
-      .report-signatures{margin:14px 0 0;break-inside:avoid!important;page-break-inside:avoid!important;color:#111;display:block}.report-sign-date{text-align:right;margin-bottom:5px}.report-sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;text-align:center;break-inside:avoid-page!important;page-break-inside:avoid!important}.report-sign-grid>div{break-inside:avoid-page!important;page-break-inside:avoid!important}.report-sign-grid p{margin:2px 0}.report-sign-space{height:32px}.report-sign-name{font-weight:700}
+      .report-signatures{margin:14px 0 0;color:#111;display:block;break-inside:avoid;page-break-inside:avoid;break-before:avoid-page;page-break-before:avoid}
+      .report-sign-date{text-align:right;margin-bottom:5px}
+      .report-sign-table{width:100%;border-collapse:collapse;table-layout:fixed;break-inside:avoid;page-break-inside:avoid}
+      .report-sign-table td{width:50%;text-align:center;vertical-align:top;border:0!important;padding:0 8px!important;background:#fff!important;color:#111!important;break-inside:avoid;page-break-inside:avoid}
+      .report-sign-table p{margin:2px 0}.report-sign-space{height:32px}.report-sign-name{font-weight:700}
       @page{size:A4 portrait;margin:14mm}
       @media print{
         body *{visibility:hidden!important}
@@ -234,10 +255,13 @@ function decorateReportOutput(){
         #view-reports thead{display:table-header-group}
         #view-reports tr{break-inside:avoid;page-break-inside:avoid}
         #view-reports .tablewrap{overflow:visible!important;max-width:none!important}
-        #view-reports .report-signatures{display:block!important;margin-top:10px!important;break-inside:avoid!important;page-break-inside:avoid!important}
-        #view-reports .report-sign-grid,#view-reports .report-sign-grid>div{break-inside:avoid-page!important;page-break-inside:avoid!important}
-        #view-reports .report-sign-space{height:30px!important}
-        #view-reports .report-sign-grid p{margin:2px 0!important}
+        #view-reports #reportSignatureBlock{display:block!important;margin-top:8px!important;break-inside:avoid!important;page-break-inside:avoid!important;break-before:avoid-page!important;page-break-before:avoid!important}
+        #view-reports .report-sign-table{display:table!important;width:100%!important;table-layout:fixed!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-table tbody{display:table-row-group!important}
+        #view-reports .report-sign-table tr{display:table-row!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-table td{display:table-cell!important;width:50%!important;padding:0 8px!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-space{height:28px!important}
+        #view-reports .report-sign-table p{margin:2px 0!important}
         #view-reports .report-sign-date{margin-bottom:4px!important}
       }
     `;document.head.appendChild(style);
