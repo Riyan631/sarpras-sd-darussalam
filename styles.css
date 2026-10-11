@@ -30,9 +30,42 @@ textarea{resize:vertical}
 .view{display:none}
 .view.active{display:block}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
-.stat{background:white;border:1px solid var(--line);border-radius:13px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.stat strong{font-size:28px;color:var(--green);display:block;width:100%;text-align:center}
-.stat span{font-size:13px;color:var(--muted);display:block;width:100%;text-align:center}
+.stat{
+  position:relative;isolation:isolate;overflow:hidden;
+  background:linear-gradient(145deg,#ffffff 0%,#f5faf7 100%);
+  border:1px solid #d8e7de;border-radius:16px;
+  padding:18px 16px 16px;min-height:92px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:4px;
+  box-shadow:0 4px 12px rgba(18,60,47,.07);
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease
+}
+.stat:before{
+  content:"";position:absolute;inset:0 auto 0 0;width:5px;
+  background:linear-gradient(180deg,#2d8b62,#e8b84b);z-index:-1
+}
+.stat:after{
+  content:"";position:absolute;width:76px;height:76px;border-radius:50%;
+  right:-27px;top:-31px;background:rgba(45,139,98,.07);z-index:-1
+}
+.stat:nth-child(2):before{background:linear-gradient(180deg,#3184c6,#9dd7f5)}
+.stat:nth-child(3):before{background:linear-gradient(180deg,#8a65c7,#d9c8f3)}
+.stat:nth-child(4):before{background:linear-gradient(180deg,#d99b2b,#ffe2a0)}
+.stat strong{
+  font-size:30px;line-height:1.1;font-weight:850;letter-spacing:-.5px;
+  color:var(--green);display:block;width:100%;text-align:center
+}
+.stat span{
+  font-size:12px;font-weight:650;letter-spacing:.2px;color:#68776f;
+  display:block;width:100%;text-align:center
+}
+@media (hover:hover){
+  .stat:hover{transform:translateY(-3px);box-shadow:0 9px 20px rgba(18,60,47,.12);border-color:#b9d8c7}
+}
+@media(max-width:700px){
+  .stat{min-height:84px;padding:14px 10px;border-radius:13px}
+  .stat strong{font-size:26px}
+}
 .formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .wide{grid-column:1/-1}
 .actions{margin-top:13px}
@@ -68,9 +101,6 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
   .toolbar-actions button{flex:1}
 }
 @media print{
-  /* Hilangkan judul panel di pojok kiri atas; judul laporan resmi tetap tampil */
-  #view-reports > .panel > h2{display:none!important;}
-
   @page{size:A4 landscape;margin:12mm}
   body{background:#fff!important;color:#111!important;font-size:10pt!important}
   header,nav,.sidebar,.navbar,.admin-only,button,.no-print,.actions,.action-buttons{display:none!important}
