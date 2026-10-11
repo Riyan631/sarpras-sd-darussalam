@@ -4,8 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_cGvCIZszseAnEC4qOiHikw_DrAqliM3";
 const DB_NAME = "sarpras-darussalam-local-v2";
 const STORE = "records";
 const QUEUE = "outbox";
-let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [];
-let dashboardSelectedRoomId = "";
+let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [], editingRoomId = null, dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
@@ -19,7 +18,7 @@ function setMsg(id,msg,good=false){const el=$(id);if(el){el.textContent=msg;el.c
 function onlineStatus(){$("netStatus").textContent=navigator.onLine?"Online":"Offline";$("netDot").style.color=navigator.onLine?"#8ef0a5":"#ff9b9b";$("syncStatus").textContent="";$("syncExplanation").textContent=navigator.onLine?"Koneksi tersedia. Perubahan lokal akan dikirim ke database bersama.":"Offline. Perubahan disimpan di perangkat ini dan menunggu koneksi."}
 function showApp(){ $("loginPanel").classList.add("hidden");$("appPanel").classList.remove("hidden");$("userLabel").textContent=currentUser?.email||"Pengguna";$("roleLabel").textContent=currentRole==="admin_utama"?"Admin utama":(currentRole==="admin"?"Admin":"Petugas");document.querySelectorAll(".admin-only").forEach(e=>e.classList.toggle("hidden",currentRole!=="admin_utama")); }
 function showLogin(){ $("appPanel").classList.add("hidden");$("loginPanel").classList.remove("hidden"); }
-function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();}
+function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();if(name==="qr")renderQRHome();}
 function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(v=>`<td>${v??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${head.length}" class="muted">Belum ada data.</td></tr>`}</tbody></table>`}
 function roomLabel(id){return rooms.find(r=>r.id===id)?.name||""}
 function cond(i){return `<span class="pill">${i.good||0} baik</span> <span class="pill">${i.minor||0} ringan</span> <span class="pill">${i.major||0} berat</span>`}
@@ -28,10 +27,12 @@ $("countKinds").textContent=items.length;$("countUnits").textContent=items.reduc
 $("itemRoom").innerHTML='<option value="">Belum ditentukan</option>'+rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
 const q=($("itemSearch").value||"").toLowerCase(), visible=items.filter(i=>[i.code,i.name,i.category,roomLabel(i.room_id)].join(" ").toLowerCase().includes(q));
 $("itemsTable").innerHTML=table(["Kode","Nama / kategori","Ruangan","Jumlah","Kondisi","Foto","Tindakan"],visible.map(i=>[esc(i.code||"-"),`<b>${esc(i.name)}</b><br>${esc(i.category)}<br><small>${esc(i.year||"")}</small>`,esc(roomLabel(i.room_id)||"-"),i.qty,cond(i),`${i.photo?`<img class="thumb" src="${i.photo}" alt="Foto barang">`:""}${i.damage_photo?`<img class="thumb" src="${i.damage_photo}" alt="Foto kerusakan">`:""}`,`<button class="btn light" data-edit="${i.id}">Edit</button> <button class="btn danger" data-del="${i.id}">Hapus</button><br><small>${esc(i.sync_state||"tersimpan")}</small>`]));
-$("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Tindakan"],rooms.map(r=>[esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),items.filter(i=>i.room_id===r.id).length,`<button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]));
+const roomQuery=($("roomSearch")?.value||"").trim().toLocaleLowerCase("id-ID");
+const visibleRooms=rooms.filter(r=>[r.name,r.type,r.pic].some(v=>String(v||"").toLocaleLowerCase("id-ID").includes(roomQuery)));
+$("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Jumlah unit","Tindakan"],visibleRooms.map(r=>{const roomItems=items.filter(i=>i.room_id===r.id);const kindCount=roomItems.length;const unitCount=roomItems.reduce((sum,i)=>sum+(Number(i.qty)||0),0);return [esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),kindCount,unitCount,`<button class="btn light" data-roomedit="${r.id}">Edit</button> <button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]}));
 $("recentTable").innerHTML=table(["Kode","Barang","Ruangan","Jumlah","Kondisi"],[...items].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")).slice(0,5).map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,cond(i)]));
 renderDashboardDetails();
-renderReport();renderMutations();updateQueueStatus();
+renderReport();renderMutations();renderInspectionHistory();updateQueueStatus();
 }
 function renderDashboardDetails(){
   const recent=$("recentTable");
@@ -226,6 +227,7 @@ function renderReport(){
     ["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],
     arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")])
   );
+  decorateReportOutput();
   const roomSelect=$("reportRoomFilter");
   if(roomSelect) roomSelect.addEventListener("change",()=>{
     const value=roomSelect.value;
@@ -264,6 +266,7 @@ function renderReportUnassigned(){
     <h3 class="condition-heading">Daftar Barang Perlu Perbaikan</h3><p>Barang dengan kondisi rusak ringan atau rusak berat: <b>${damaged.length} jenis</b>.</p><div id="reportDamagedTable" class="tablewrap"></div>`;
   $("reportDamagedTable").innerHTML=table(["Kode","Nama","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],damaged.map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
   $("reportTable").innerHTML=table(["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
+  decorateReportOutput();
   const newSelect=$("reportRoomFilter");
   if(newSelect)newSelect.addEventListener("change",()=>{if(newSelect.value==="__unassigned__")renderReportUnassigned();else renderReport()});
 }
@@ -274,8 +277,38 @@ function csvDownload(name,headers,rows){const blob=new Blob(["\ufeff"+[headers,.
 const itemCSV=arr=>arr.map(i=>[i.code,i.name,i.category,roomLabel(i.room_id),i.qty,i.good,i.minor,i.major,i.year,i.recorder,i.notes]);
 $("exportItems").addEventListener("click",()=>csvDownload("inventaris_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(items)));
 $("exportRooms").addEventListener("click",()=>csvDownload("ruangan_sd_darussalam.csv",["Nama","Jenis","Penanggung jawab","Keterangan"],rooms.map(r=>[r.name,r.type,r.pic,r.notes])));
-$("exportReport").addEventListener("click",()=>csvDownload("laporan_sarpras_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(reportItems())));
-$("printReport").addEventListener("click",()=>{activateView("reports");window.print()});
+$("exportReport").addEventListener("click",()=>{
+  const arr=reportItems();
+  const total=arr.reduce((n,i)=>n+(Number(i.qty)||0),0),good=arr.reduce((n,i)=>n+(Number(i.good)||0),0),minor=arr.reduce((n,i)=>n+(Number(i.minor)||0),0),major=arr.reduce((n,i)=>n+(Number(i.major)||0),0);
+  const {cat,condLabel,room}=reportFilterLabels();
+  const rows=[
+    ["Tanggal laporan",new Date().toLocaleDateString("id-ID")],
+    ["Filter kategori",cat],
+    ["Filter kondisi",condLabel],
+    ["Filter ruangan",room],
+    [],
+    ["REKAPITULASI","Nilai"],
+    ["Jenis barang",arr.length],
+    ["Total unit",total],
+    ["Kondisi baik",good],
+    ["Rusak ringan",minor],
+    ["Rusak berat",major],
+    [],
+    ["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Petugas","Keterangan"],
+    ...arr.map((i,n)=>[n+1,i.code,i.name,i.category,roomLabel(i.room_id)||"Belum ditentukan",i.year||"",i.qty,i.good,i.minor,i.major,i.recorder,i.notes])
+  ];
+  const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
+});
+$("printReport").addEventListener("click",()=>{
+   activateView("reports");
+   renderReport();
+   setTimeout(()=>{
+     const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
+     signatures.slice(0,-1).forEach(el=>el.remove());
+     window.print();
+   },100);
+ });
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
 async function callAdminFunction(body){const {data:{session}}=await sb.auth.getSession();const {data,error}=await sb.functions.invoke("admin-users",{body,headers:{Authorization:"Bearer "+session.access_token}});if(error)throw error;return data}
@@ -341,9 +374,16 @@ async function saveMutation(e) {
     return;
   }
 
+  if (!sb || !navigator.onLine) {
+    setMsg("mutationMsg", "Mutasi memerlukan koneksi internet. Tidak ada perubahan stok yang dikirim.");
+    return;
+  }
+
   const type = $("mutationType").value;
   const id = $("mutationItem").value;
   const qty = Number($("mutationQty").value);
+  const condition = type === "outgoing" ? $("mutationCondition").value : null;
+  const toRoom = type === "transfer" ? ($("mutationToRoom").value || null) : null;
   const reason = $("mutationReason").value.trim();
   const notes = $("mutationNotes").value.trim();
   const item = items.find(i => i.id === id);
@@ -353,48 +393,23 @@ async function saveMutation(e) {
     return;
   }
   if (!Number.isInteger(qty) || qty < 1) {
-    setMsg("mutationMsg", "Jumlah harus bilangan bulat minimal 1.");
+    setMsg("mutationMsg", "Jumlah harus berupa bilangan bulat minimal 1.");
     return;
   }
   if (!reason) {
     setMsg("mutationMsg", "Isi alasan, sumber, atau tujuan mutasi.");
     return;
   }
-
-  const before = {
-    qty: Number(item.qty) || 0,
-    good: Number(item.good) || 0,
-    minor: Number(item.minor) || 0,
-    major: Number(item.major) || 0
-  };
-  const updated = { ...item };
-  let condition = null;
-  let toRoom = item.room_id || null;
-  const fromRoom = item.room_id || null;
-
-  if (type === "incoming") {
-    updated.qty = before.qty + qty;
-    updated.good = before.good + qty;
-    condition = "good";
-  } else if (type === "outgoing") {
-    condition = $("mutationCondition").value;
-    if (!["good", "minor", "major"].includes(condition)) {
-      setMsg("mutationMsg", "Kondisi barang tidak valid.");
-      return;
-    }
-    if (qty > before[condition]) {
-      setMsg("mutationMsg", `Jumlah melebihi stok ${conditionLabel(condition)} yang tersedia (${before[condition]} unit).`);
-      return;
-    }
-    updated[condition] = before[condition] - qty;
-    updated.qty = before.qty - qty;
-  } else if (type === "transfer") {
-    toRoom = $("mutationToRoom").value || null;
+  if (type === "outgoing" && !["good", "minor", "major"].includes(condition)) {
+    setMsg("mutationMsg", "Pilih kondisi barang keluar yang valid.");
+    return;
+  }
+  if (type === "transfer") {
     if (!toRoom) {
       setMsg("mutationMsg", "Pilih ruangan tujuan.");
       return;
     }
-    if (toRoom === fromRoom) {
+    if (toRoom === (item.room_id || null)) {
       setMsg("mutationMsg", "Ruangan tujuan sama dengan ruangan saat ini.");
       return;
     }
@@ -402,74 +417,107 @@ async function saveMutation(e) {
       setMsg("mutationMsg", "Ruangan tujuan tidak ditemukan.");
       return;
     }
-    updated.room_id = toRoom;
-  } else {
-    setMsg("mutationMsg", "Jenis mutasi tidak valid.");
+    if (qty !== (Number(item.qty) || 0)) {
+      setMsg("mutationMsg", "Pemindahan berlaku untuk seluruh unit dalam satu data barang. Masukkan jumlah total barang.");
+      return;
+    }
+  }
+  if (type === "outgoing" && qty > (Number(item[condition]) || 0)) {
+    setMsg("mutationMsg", `Jumlah melebihi stok kondisi ${conditionLabel(condition).toLowerCase()} yang tersedia (${Number(item[condition]) || 0} unit).`);
     return;
   }
 
-  const after = {
-    qty: Number(updated.qty) || 0,
-    good: Number(updated.good) || 0,
-    minor: Number(updated.minor) || 0,
-    major: Number(updated.major) || 0
-  };
-  if (after.qty !== after.good + after.minor + after.major ||
-      Object.values(after).some(n => !Number.isInteger(n) || n < 0)) {
-    setMsg("mutationMsg", "Perubahan ditolak: jumlah dan kondisi barang tidak konsisten.");
-    return;
-  }
-
-  const mutation = {
-    id: uuid(), type, inventory_id: item.id,
-    item_code: item.code || "", item_name: item.name,
-    quantity: qty, condition, from_room_id: fromRoom, to_room_id: toRoom,
-    reason, notes, performed_by: currentUser.id,
-    performed_by_email: currentUser.email || "",
-    qty_before: before.qty, qty_after: after.qty,
-    good_before: before.good, good_after: after.good,
-    minor_before: before.minor, minor_after: after.minor,
-    major_before: before.major, major_after: after.major,
-    created_at: new Date().toISOString(), created_by: currentUser.id
-  };
+  const submitButton = $("mutationForm").querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
 
   try {
-    updated.updated_at = new Date().toISOString();
-    updated.updated_by = currentUser.id;
-    updated.sync_state = "menunggu sinkronisasi";
+    const { data, error } = await sb.rpc("record_inventory_mutation", {
+      p_inventory_id: id,
+      p_type: type,
+      p_quantity: qty,
+      p_condition: condition,
+      p_to_room_id: toRoom,
+      p_reason: reason,
+      p_notes: notes
+    });
 
-    // Simpan kedua perubahan ke cache dan antrean lokal.
-    // Ini belum merupakan transaksi database atomik.
-    await cacheRecord("inventory", updated);
-    await queueOp("inventory", "upsert", updated);
-    await cacheRecord("mutations", mutation);
-    await queueOp("mutations", "upsert", mutation);
+    if (error) throw error;
+
+    // Muat ulang data dari Supabase. Jangan membuat antrean perubahan kedua.
+    await fetchRemote();
     await localLoad();
-
-    if (navigator.onLine) await syncQueue();
-
-    const queue = await dbAll(QUEUE);
-    const inventoryPending = queue.some(op => op.table === "inventory" && op.row_id === item.id);
-    const mutationPending = queue.some(op => op.table === "mutations" && op.row_id === mutation.id);
-
-    if (!inventoryPending && !mutationPending) {
-      setMsg("mutationMsg", "Antrean lokal kosong untuk kedua operasi. Periksa database untuk memastikan data tersimpan.", true);
-    } else if (inventoryPending && mutationPending) {
-      setMsg("mutationMsg", "Belum tersinkron. Kedua operasi masih dalam antrean. Jangan ulangi mutasi.");
-    } else {
-      setMsg("mutationMsg", "PERINGATAN: status sinkronisasi berbeda. Jangan ulangi mutasi; periksa inventaris, riwayat, dan antrean terlebih dahulu.");
-    }
 
     $("mutationForm").reset();
     $("mutationQty").value = 1;
     updateMutationForm();
-    await updateQueueStatus();
+    setMsg("mutationMsg", data?.message || "Mutasi dan riwayat berhasil disimpan oleh Supabase.", true);
   } catch (err) {
-    console.error("Kesalahan penyimpanan mutasi:", err);
-    setMsg("mutationMsg", "Terjadi kesalahan. Jangan ulangi mutasi sebelum memeriksa data dan antrean.");
+    console.error("Kesalahan mutasi:", err);
+    setMsg("mutationMsg", "Mutasi tidak dapat dikonfirmasi oleh Supabase. Jangan ulangi dulu; periksa inventaris dan riwayat mutasi. Detail: " + (err?.message || "Kesalahan tidak diketahui."));
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
 }
+
+// Modul QR dan pemeriksaan ditambahkan secara terpisah agar tidak mengubah fitur lama.
+let qrLibraryPromise = null;
+function loadQRCodeLibrary(){
+  if(window.QRCode) return Promise.resolve(true);
+  if(qrLibraryPromise) return qrLibraryPromise;
+  qrLibraryPromise = new Promise(resolve=>{
+    const script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+    script.onload=()=>resolve(!!window.QRCode);script.onerror=()=>resolve(false);
+    document.head.appendChild(script);
+  });
+  return qrLibraryPromise;
+}
+function qrPayload(type,id){return `SARPRAS|${type}|${id}`}
+function itemById(id){return items.find(x=>x.id===id)}
+function inspectionTargetLabel(row){return row.target_type==="room"?(row.room_name||roomLabel(row.room_id)||"Ruangan"):(row.item_name||itemById(row.item_id)?.name||"Barang")}
+function initQRUI(){
+  if($("view-qr")) return;
+  const firstTab=document.querySelector(".tab"),firstView=document.querySelector(".view");
+  if(!firstTab||!firstView){console.warn("QR: area navigasi aplikasi tidak ditemukan");return}
+  const tab=document.createElement("button");tab.type="button";tab.className=firstTab.className;tab.dataset.view="qr";tab.textContent="QR & Pemeriksaan";firstTab.parentElement.appendChild(tab);tab.addEventListener("click",()=>activateView("qr"));
+  const view=document.createElement("section");view.id="view-qr";view.className=firstView.className;view.innerHTML=`
+    <div class="card"><h2>QR Code Inventaris dan Ruangan</h2><p class="muted">Pilih satu barang atau ruangan untuk membuat QR. QR menyimpan identitas data di aplikasi SARPRAS.</p>
+      <div class="grid"><div class="field"><label for="qrTargetType">Jenis QR</label><select id="qrTargetType"><option value="item">Barang inventaris</option><option value="room">Ruangan</option></select></div><div class="field"><label for="qrTarget">Pilih data</label><select id="qrTarget"></select></div></div>
+      <div class="actions"><button class="btn" type="button" id="makeQR">Buat QR</button><button class="btn secondary" type="button" id="printQR">Cetak QR terpilih</button><button class="btn secondary" type="button" id="printAllQR">Cetak semua QR barang</button></div><div id="qrOutput" style="margin-top:16px"></div><p id="qrMsg" class="msg" role="status"></p>
+    </div>
+    <div class="card"><h2>Catat Pemeriksaan</h2><p class="muted">Pemeriksaan disimpan di perangkat dan dikirim ke Supabase saat koneksi tersedia.</p>
+      <form id="inspectionForm"><div class="grid"><div class="field"><label for="inspectTargetType">Periksa</label><select id="inspectTargetType"><option value="item">Barang</option><option value="room">Ruangan</option></select></div><div class="field"><label for="inspectTarget">Barang / ruangan</label><select id="inspectTarget" required></select></div>
+      <div class="field"><label for="inspectResult">Hasil pemeriksaan</label><select id="inspectResult"><option value="sesuai">Sesuai</option><option value="rusak_ringan">Rusak ringan</option><option value="rusak_berat">Rusak berat</option><option value="tidak_ditemukan">Tidak ditemukan</option><option value="jumlah_tidak_sesuai">Jumlah tidak sesuai</option><option value="perlu_perbaikan">Perlu perbaikan</option></select></div>
+      <div class="field"><label for="inspectCondition">Kondisi</label><select id="inspectCondition"><option value="baik">Baik</option><option value="rusak_ringan">Rusak ringan</option><option value="rusak_berat">Rusak berat</option><option value="tidak_dapat_dinilai">Tidak dapat dinilai</option></select></div>
+      <div class="field"><label for="inspectQty">Jumlah ditemukan</label><input id="inspectQty" type="number" min="0" step="1" value="1" required></div><div class="field"><label for="inspectNotes">Catatan</label><input id="inspectNotes" maxlength="1000" placeholder="Catatan pemeriksaan"></div></div>
+      <div class="actions"><button class="btn" type="submit">Simpan Pemeriksaan</button><button class="btn secondary" id="scanQR" type="button">Pindai QR dengan Kamera</button></div><div id="scanArea" class="hidden"><video id="qrVideo" playsinline style="max-width:100%;width:360px"></video><p class="muted">Arahkan kamera ke QR. Kamera memerlukan izin dan HTTPS.</p><button class="btn secondary" type="button" id="stopScan">Hentikan kamera</button></div><p id="inspectionMsg" class="msg" role="status"></p></form>
+    </div>
+    <div class="card"><h2>Riwayat Pemeriksaan</h2><div class="field no-print"><label for="inspectionSearch">Cari riwayat</label><input id="inspectionSearch" placeholder="Cari barang, ruangan, catatan, petugas"></div><div id="inspectionTable" class="tablewrap"></div><div class="actions no-print"><button class="btn secondary" type="button" id="exportInspections">Ekspor CSV untuk Excel</button><button class="btn secondary" type="button" id="printInspections">Cetak riwayat</button></div></div>`;
+  firstView.parentElement.appendChild(view);
+  $("qrTargetType").addEventListener("change",populateQRTargets);$("inspectTargetType").addEventListener("change",populateInspectionTargets);
+  $("makeQR").addEventListener("click",()=>makeSelectedQR());$("printQR").addEventListener("click",()=>printSelectedQR());$("printAllQR").addEventListener("click",()=>printAllItemQR());
+  $("inspectionForm").addEventListener("submit",saveInspection);$("inspectionSearch").addEventListener("input",renderInspectionHistory);
+  $("exportInspections").addEventListener("click",()=>csvDownload("riwayat_pemeriksaan_sarpras.csv",["Tanggal","Jenis","Barang/Ruangan","Hasil","Kondisi","Jumlah ditemukan","Catatan","Petugas"],filteredInspections().map(r=>[r.inspected_at?new Date(r.inspected_at).toLocaleString("id-ID"):"",r.target_type==="room"?"Ruangan":"Barang",inspectionTargetLabel(r),inspectionResultLabel(r.result),conditionLabel(r.condition),r.found_qty,r.notes,r.performed_by_email])));
+  $("printInspections").addEventListener("click",()=>window.print());$("scanQR").addEventListener("click",startQRScan);$("stopScan").addEventListener("click",stopQRScan);
+  populateQRTargets();populateInspectionTargets();renderInspectionHistory();
+}
+function populateQRTargets(){const type=$("qrTargetType")?.value||"item",el=$("qrTarget");if(!el)return;const arr=type==="room"?rooms:items;el.innerHTML='<option value="">Pilih data</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc(type==="room"?x.name:((x.code||"Tanpa kode")+" — "+x.name))}</option>`).join("")}
+function populateInspectionTargets(){const type=$("inspectTargetType")?.value||"item",el=$("inspectTarget");if(!el)return;const arr=type==="room"?rooms:items;el.innerHTML='<option value="">Pilih data</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc(type==="room"?x.name:((x.code||"Tanpa kode")+" — "+x.name))}</option>`).join("");if(type==="item"){$("inspectQty").value=1}}
+async function makeSelectedQR(){const type=$("qrTargetType").value,id=$("qrTarget").value,out=$("qrOutput");out.innerHTML="";if(!id){setMsg("qrMsg","Pilih barang atau ruangan terlebih dahulu.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const row=(type==="room"?rooms:items).find(x=>x.id===id);if(!row)return;const payload=qrPayload(type,id);const box=document.createElement("div");box.style.cssText="display:inline-block;padding:16px;border:1px solid #ddd;border-radius:10px;text-align:center;background:white;color:#111";const canvas=document.createElement("div");box.appendChild(canvas);const title=document.createElement("b");title.textContent=type==="room"?row.name:(row.code?row.code+" — "+row.name:row.name);box.appendChild(title);const small=document.createElement("p");small.textContent=payload;small.style.cssText="font-size:10px;word-break:break-all;max-width:220px";box.appendChild(small);out.appendChild(box);new QRCode(canvas,{text:payload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});window._sarprasCurrentQR={type,id,payload,label:title.textContent};setMsg("qrMsg","QR berhasil dibuat. Cetak setelah gambar QR tampil.",true)}
+function printSelectedQR(){const out=$("qrOutput");if(!out?.querySelector("canvas, img")){setMsg("qrMsg","Buat QR terlebih dahulu.");return}printQRMarkup(out.innerHTML,"Label QR SARPRAS")}
+async function printAllItemQR(){if(!items.length){setMsg("qrMsg","Belum ada data barang.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const html=[];for(const row of items){const holder=document.createElement("div");new QRCode(holder,{text:qrPayload("item",row.id),width:120,height:120});await new Promise(r=>setTimeout(r,30));const image=holder.querySelector("img")?.src||holder.querySelector("canvas")?.toDataURL("image/png")||"";html.push(`<div class="label"><img src="${image}" alt="QR"><b>${esc(row.code||"")}</b><span>${esc(row.name)}</span></div>`)}printQRMarkup(html.join(""),"Label QR Barang SARPRAS",true)}
+function printQRMarkup(html,title,grid=false){const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak QR.");return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:12px}.labels{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.label{border:1px solid #aaa;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:5px;break-inside:avoid;text-align:center;font-size:12px}.label img{width:120px;height:120px;object-fit:contain} @media print{body{padding:0}}</style></head><body><h2>${esc(title)}</h2><div class="${grid?"labels":""}">${html}</div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+async function saveInspection(e){e.preventDefault();if(!currentUser){setMsg("inspectionMsg","Masuk terlebih dahulu.");return}const type=$("inspectTargetType").value,id=$("inspectTarget").value,qty=Number($("inspectQty").value);if(!id){setMsg("inspectionMsg","Pilih barang atau ruangan.");return}if(!Number.isInteger(qty)||qty<0){setMsg("inspectionMsg","Jumlah ditemukan harus bilangan bulat minimal 0.");return}const isRoom=type==="room",target=(isRoom?rooms:items).find(x=>x.id===id);if(!target){setMsg("inspectionMsg","Data target tidak ditemukan.");return}const now=new Date().toISOString();const row={id:uuid(),target_type:type,target_id:id,item_id:isRoom?null:id,room_id:isRoom?id:(target.room_id||null),item_name:isRoom?"":target.name||"",item_code:isRoom?"":target.code||"",room_name:isRoom?target.name||"":roomLabel(target.room_id)||"",result:$("inspectResult").value,condition:$("inspectCondition").value,found_qty:qty,notes:$("inspectNotes").value.trim(),performed_by:currentUser.id,performed_by_email:currentUser.email||"",inspected_at:now,created_at:now};try{await cacheRecord("inventory_inspections",row);await queueOp("inventory_inspections","upsert",row);if(navigator.onLine)await syncQueue();await localLoad();$("inspectNotes").value="";setMsg("inspectionMsg",navigator.onLine?"Pemeriksaan disimpan. Periksa indikator sinkronisasi untuk memastikan pengiriman ke server.":"Pemeriksaan disimpan di perangkat dan menunggu koneksi.",true)}catch(err){console.error(err);setMsg("inspectionMsg","Gagal menyimpan pemeriksaan: "+(err.message||err))}}
+function inspectionResultLabel(v){return ({sesuai:"Sesuai",rusak_ringan:"Rusak ringan",rusak_berat:"Rusak berat",tidak_ditemukan:"Tidak ditemukan",jumlah_tidak_sesuai:"Jumlah tidak sesuai",perlu_perbaikan:"Perlu perbaikan"})[v]||v||"-"}
+function filteredInspections(){const q=($("inspectionSearch")?.value||"").toLocaleLowerCase("id-ID");return inspections.filter(r=>[inspectionTargetLabel(r),r.result,r.condition,r.notes,r.performed_by_email,r.room_name,r.item_code].join(" ").toLocaleLowerCase("id-ID").includes(q))}
+function renderInspectionHistory(){if(!$("inspectionTable"))return;const arr=filteredInspections();$("inspectionTable").innerHTML=table(["Tanggal","Jenis","Barang/Ruangan","Hasil","Kondisi","Jumlah","Catatan","Petugas"],arr.map(r=>[esc(r.inspected_at?new Date(r.inspected_at).toLocaleString("id-ID"):"-"),r.target_type==="room"?"Ruangan":"Barang",esc(inspectionTargetLabel(r)),esc(inspectionResultLabel(r.result)),esc(conditionLabel(r.condition)),Number(r.found_qty)||0,esc(r.notes||"-"),esc(r.performed_by_email||"-")]))}
+function renderQRHome(){populateQRTargets();populateInspectionTargets();renderInspectionHistory()}
+let qrScanStream=null,qrScanActive=false;
+async function startQRScan(){if(!("BarcodeDetector" in window)){setMsg("inspectionMsg","Pemindaian kamera otomatis tidak didukung browser ini. Masukkan kode QR secara manual belum tersedia; gunakan aplikasi pemindai QR pada HP untuk membaca teks SARPRAS|ITEM|ID atau SARPRAS|ROOM|ID.");return}try{const detector=new BarcodeDetector({formats:["qr_code"]});qrScanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});const video=$("qrVideo");video.srcObject=qrScanStream;await video.play();$("scanArea").classList.remove("hidden");qrScanActive=true;const tick=async()=>{if(!qrScanActive)return;try{const codes=await detector.detect(video);if(codes.length){const m=/^SARPRAS\|(ITEM|ROOM)\|(.+)$/.exec(codes[0].rawValue||"");if(m){$("inspectTargetType").value=m[1]==="ROOM"?"room":"item";populateInspectionTargets();$("inspectTarget").value=m[2];setMsg("inspectionMsg","QR berhasil dipindai. Lengkapi hasil pemeriksaan lalu simpan.",true);stopQRScan();return}}}catch(e){}requestAnimationFrame(tick)};requestAnimationFrame(tick)}catch(err){setMsg("inspectionMsg","Kamera tidak dapat dibuka: "+(err.message||err)+". Pastikan izin kamera diberikan dan aplikasi dibuka melalui HTTPS.")}}
+function stopQRScan(){qrScanActive=false;if(qrScanStream){qrScanStream.getTracks().forEach(t=>t.stop());qrScanStream=null}const v=$("qrVideo");if(v)v.srcObject=null;$("scanArea")?.classList.add("hidden")}
+
 initMutationUI();
+initQRUI();
 
 window.addEventListener("online",async()=>{onlineStatus();if(sb&&currentUser){await syncQueue();await fetchRemote()}});
 window.addEventListener("offline",onlineStatus);
