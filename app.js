@@ -193,10 +193,14 @@ function decorateReportOutput(){
   if(!summary||!reportTableEl)return;
   const {cat,condLabel,room}=reportFilterLabels();
   const today=new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+  // Gunakan logo yang sama dengan header aplikasi agar logo laporan selalu konsisten.
+  const schoolLogo = document.querySelector("header .brand .app-school-logo img, header .brand .logo img");
+  const schoolLogoSrc = schoolLogo?.currentSrc || schoolLogo?.src || "";
   summary.querySelectorAll(".report-print-header").forEach(el=>el.remove());
   document.querySelectorAll("#reportSignatureBlock").forEach(el=>el.remove());
   summary.insertAdjacentHTML("afterbegin", `
     <section class="report-print-header">
+      ${schoolLogoSrc ? `<img class="report-school-logo" src="${schoolLogoSrc}" alt="Logo SD Islam Darussalam">` : ""}
       <div class="report-school-name">SD ISLAM DARUSSALAM PALANGKARAYA</div>
       <div class="report-school-subtitle">LAPORAN SARANA DAN PRASARANA SEKOLAH</div>
       <div class="report-header-rule"></div>
@@ -215,6 +219,7 @@ function decorateReportOutput(){
   if(!$("reportPrintStyles")){
     const style=document.createElement("style");style.id="reportPrintStyles";style.textContent=`
       .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 12px;color:#172b24}
+      .report-school-logo{display:block;width:72px;height:72px;object-fit:contain;margin:0 auto 7px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
       .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:8px 0 10px}
       .report-print-header h2{font-size:16px;margin:0 0 6px}.report-header-date{margin:0 0 7px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;font-size:11px}
       .report-signatures{margin:8px 0 0;color:#111;display:block;break-inside:avoid!important;page-break-inside:avoid!important}.report-sign-date{text-align:right;margin-bottom:4px}
