@@ -240,6 +240,74 @@ header .brand .app-school-logo img {
 }
 </style>
 
+
+<style>
+/* Penyempurnaan grafik dan warna kartu Dashboard */
+#view-dashboard .condition-row,
+#view-dashboard .chart-row,
+#view-dashboard .bar-row,
+#view-dashboard .condition-line,
+#view-dashboard .graph-row {
+  display: grid !important;
+  grid-template-columns: 82px minmax(0,1fr) 58px !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  width: 100%;
+}
+#view-dashboard .condition-row > :last-child,
+#view-dashboard .chart-row > :last-child,
+#view-dashboard .bar-row > :last-child,
+#view-dashboard .condition-line > :last-child,
+#view-dashboard .graph-row > :last-child {
+  white-space: nowrap !important;
+  text-align: right !important;
+  overflow: visible !important;
+  word-break: keep-all !important;
+}
+#view-dashboard .condition-row .bar,
+#view-dashboard .chart-row .bar,
+#view-dashboard .bar-row .bar,
+#view-dashboard .condition-line .bar,
+#view-dashboard .graph-row .bar,
+#view-dashboard .progress,
+#view-dashboard .progress-track {
+  min-width: 0;
+  width: 100%;
+}
+/* Warna kartu berbeda agar tiap bagian mudah dibedakan */
+#view-dashboard .panel:nth-of-type(1) {
+  background: linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);
+  border-color: #bfdbfe;
+}
+#view-dashboard .panel:nth-of-type(2) {
+  background: linear-gradient(135deg,#ecfdf5 0%,#ffffff 100%);
+  border-color: #a7f3d0;
+}
+#view-dashboard .panel:nth-of-type(3) {
+  background: linear-gradient(135deg,#fff7ed 0%,#ffffff 100%);
+  border-color: #fed7aa;
+}
+#view-dashboard .panel:nth-of-type(4) {
+  background: linear-gradient(135deg,#f5f3ff 0%,#ffffff 100%);
+  border-color: #ddd6fe;
+}
+#view-dashboard .condition-card:nth-child(4n+1) {background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+#view-dashboard .condition-card:nth-child(4n+2) {background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+#view-dashboard .condition-card:nth-child(4n+3) {background:#fff7ed;border-color:#fed7aa;color:#c2410c}
+#view-dashboard .condition-card:nth-child(4n+4) {background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}
+#view-dashboard .panel h2 {color:#173b2f}
+@media(max-width:520px) {
+  #view-dashboard .condition-row,
+  #view-dashboard .chart-row,
+  #view-dashboard .bar-row,
+  #view-dashboard .condition-line,
+  #view-dashboard .graph-row {
+    grid-template-columns: 72px minmax(0,1fr) 58px !important;
+    column-gap: 6px !important;
+  }
+}
+</style>
+
 </head>
 
 <body>
