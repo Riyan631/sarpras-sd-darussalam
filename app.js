@@ -179,6 +179,65 @@ $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("
 $("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
 $("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
+function reportFilterLabels(){
+  const cat=$("reportCategory")?.selectedOptions?.[0]?.textContent||"Semua kategori";
+  const condLabel=$("reportCondition")?.selectedOptions?.[0]?.textContent||"Semua kondisi";
+  const roomSelect=$("reportRoomFilter");
+  const room=roomSelect?.selectedOptions?.[0]?.textContent||"Semua ruangan";
+  return {cat,condLabel,room};
+}
+function decorateReportOutput(){
+  const summary=$("reportSummary"), reportTableEl=$("reportTable");
+  if(!summary||!reportTableEl)return;
+  const {cat,condLabel,room}=reportFilterLabels();
+  const today=new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+  summary.insertAdjacentHTML("afterbegin", `
+    <section class="report-print-header">
+      <div class="report-school-mark">SD</div>
+      <div class="report-school-name">SD DARUSSALAM PALANGKARAYA</div>
+      <div class="report-school-subtitle">LAPORAN SARANA DAN PRASARANA SEKOLAH</div>
+      <div class="report-header-rule"></div>
+      <h2>LAPORAN INVENTARIS BARANG</h2>
+      <p class="report-header-date">Tanggal laporan: <b>${esc(today)}</b></p>
+      <div class="report-filter-summary"><span>Kategori: <b>${esc(cat)}</b></span><span>Kondisi: <b>${esc(condLabel)}</b></span><span>Ruangan: <b>${esc(room)}</b></span></div>
+    </section>`);
+  const oldSign=$("reportSignatureBlock"); if(oldSign)oldSign.remove();
+  reportTableEl.insertAdjacentHTML("afterend", `
+    <section id="reportSignatureBlock" class="report-signatures">
+      <div class="report-sign-date">Palangkaraya, ${esc(today)}</div>
+      <div class="report-sign-grid">
+        <div><p>Mengetahui,</p><p>Kepala Sekolah</p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
+        <div><p>Petugas Inventaris</p><p>Pengelola Sarana dan Prasarana</p><div class="report-sign-space"></div><p class="report-sign-name">(........................................)</p><p>NIP. ....................................</p></div>
+      </div>
+    </section>`);
+  if(!$("reportPrintStyles")){
+    const style=document.createElement("style");style.id="reportPrintStyles";style.textContent=`
+      .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 18px;color:#172b24}
+      .report-school-mark{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:2px solid #173f32;border-radius:50%;font-weight:800;margin-bottom:6px}
+      .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:10px 0 12px}
+      .report-print-header h2{font-size:16px;margin:0 0 7px}.report-header-date{margin:0 0 8px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:11px}
+      .report-signatures{margin:32px 0 0;break-inside:avoid;page-break-inside:avoid;color:#111}.report-sign-date{text-align:right;margin-bottom:8px}.report-sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px;text-align:center}.report-sign-grid p{margin:4px 0}.report-sign-space{height:62px}.report-sign-name{font-weight:700}
+      @page{size:A4 portrait;margin:14mm}
+      @media print{
+        body *{visibility:hidden!important}
+        #view-reports,#view-reports *{visibility:visible!important}
+        #view-reports{display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}
+        #view-reports .no-print,#view-reports button,#view-reports input,#view-reports select{display:none!important}
+        #view-reports .card{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}
+        #view-reports h2{margin-top:0!important}
+        #view-reports .condition-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin:8px 0 12px!important}
+        #view-reports .condition-card{padding:6px!important;border:1px solid #999!important;background:#fff!important;break-inside:avoid}
+        #view-reports .condition-card strong{font-size:15px!important}
+        #view-reports table{width:100%!important;border-collapse:collapse!important;font-size:8px!important;table-layout:auto!important}
+        #view-reports th,#view-reports td{border:1px solid #666!important;padding:4px!important;color:#111!important;background:#fff!important;overflow-wrap:anywhere!important}
+        #view-reports thead{display:table-header-group}
+        #view-reports tr{break-inside:avoid;page-break-inside:avoid}
+        #view-reports .tablewrap{overflow:visible!important;max-width:none!important}
+        #view-reports .report-signatures{display:block!important}
+      }
+    `;document.head.appendChild(style);
+  }
+}
 function reportItems(){
   const roomFilter=$("reportRoomFilter")?.value||"";
   return items.filter(i=>
@@ -233,6 +292,7 @@ function renderReport(){
     ["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],
     arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")])
   );
+  decorateReportOutput();
   const roomSelect=$("reportRoomFilter");
   if(roomSelect) roomSelect.addEventListener("change",()=>{
     const value=roomSelect.value;
@@ -271,6 +331,7 @@ function renderReportUnassigned(){
     <h3 class="condition-heading">Daftar Barang Perlu Perbaikan</h3><p>Barang dengan kondisi rusak ringan atau rusak berat: <b>${damaged.length} jenis</b>.</p><div id="reportDamagedTable" class="tablewrap"></div>`;
   $("reportDamagedTable").innerHTML=table(["Kode","Nama","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],damaged.map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
   $("reportTable").innerHTML=table(["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Keterangan"],arr.map((i,n)=>[n+1,esc(i.code||"-"),esc(i.name),esc(i.category),esc(roomLabel(i.room_id)||"-"),i.year||"-",i.qty,i.good,i.minor,i.major,esc(i.notes||"-")]));
+  decorateReportOutput();
   const newSelect=$("reportRoomFilter");
   if(newSelect)newSelect.addEventListener("change",()=>{if(newSelect.value==="__unassigned__")renderReportUnassigned();else renderReport()});
 }
@@ -281,8 +342,30 @@ function csvDownload(name,headers,rows){const blob=new Blob(["\ufeff"+[headers,.
 const itemCSV=arr=>arr.map(i=>[i.code,i.name,i.category,roomLabel(i.room_id),i.qty,i.good,i.minor,i.major,i.year,i.recorder,i.notes]);
 $("exportItems").addEventListener("click",()=>csvDownload("inventaris_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(items)));
 $("exportRooms").addEventListener("click",()=>csvDownload("ruangan_sd_darussalam.csv",["Nama","Jenis","Penanggung jawab","Keterangan"],rooms.map(r=>[r.name,r.type,r.pic,r.notes])));
-$("exportReport").addEventListener("click",()=>csvDownload("laporan_sarpras_sd_darussalam.csv",["Kode","Nama","Kategori","Ruangan","Jumlah","Baik","Rusak ringan","Rusak berat","Tahun","Petugas","Keterangan"],itemCSV(reportItems())));
-$("printReport").addEventListener("click",()=>{activateView("reports");window.print()});
+$("exportReport").addEventListener("click",()=>{
+  const arr=reportItems();
+  const total=arr.reduce((n,i)=>n+(Number(i.qty)||0),0),good=arr.reduce((n,i)=>n+(Number(i.good)||0),0),minor=arr.reduce((n,i)=>n+(Number(i.minor)||0),0),major=arr.reduce((n,i)=>n+(Number(i.major)||0),0);
+  const {cat,condLabel,room}=reportFilterLabels();
+  const rows=[
+    ["Tanggal laporan",new Date().toLocaleDateString("id-ID")],
+    ["Filter kategori",cat],
+    ["Filter kondisi",condLabel],
+    ["Filter ruangan",room],
+    [],
+    ["REKAPITULASI","Nilai"],
+    ["Jenis barang",arr.length],
+    ["Total unit",total],
+    ["Kondisi baik",good],
+    ["Rusak ringan",minor],
+    ["Rusak berat",major],
+    [],
+    ["No","Kode","Nama","Kategori","Ruangan","Tahun","Jumlah","Baik","Rusak ringan","Rusak berat","Petugas","Keterangan"],
+    ...arr.map((i,n)=>[n+1,i.code,i.name,i.category,roomLabel(i.room_id)||"Belum ditentukan",i.year||"",i.qty,i.good,i.minor,i.major,i.recorder,i.notes])
+  ];
+  const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
+});
+$("printReport").addEventListener("click",()=>{activateView("reports");renderReport();setTimeout(()=>window.print(),50)});
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
 async function callAdminFunction(body){const {data:{session}}=await sb.auth.getSession();const {data,error}=await sb.functions.invoke("admin-users",{body,headers:{Authorization:"Bearer "+session.access_token}});if(error)throw error;return data}
