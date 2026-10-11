@@ -6,6 +6,62 @@ const STORE = "records";
 const QUEUE = "outbox";
 let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [], editingRoomId = null, dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
+// Penanganan aksi memakai delegasi dokumen agar tetap aktif setelah tabel dirender ulang.
+document.addEventListener("click", async e => {
+  const target = e.target instanceof Element ? e.target : e.target?.parentElement;
+  if (!target) return;
+
+  const printBtn = target.closest("#printReport");
+  if (printBtn) {
+    e.preventDefault();
+    try {
+      activateView("reports");
+      renderReport();
+      setTimeout(() => { try { window.print(); } catch (err) { alert("Cetak tidak dapat dibuka: " + (err.message || err)); } }, 250);
+    } catch (err) { alert("Gagal menyiapkan laporan cetak: " + (err.message || err)); }
+    return;
+  }
+
+  const delItem = target.closest("[data-del]");
+  if (delItem) {
+    e.preventDefault();
+    if (delItem.dataset.busy === "1") return;
+    const id = delItem.dataset.del;
+    if (!id || !confirm("Hapus inventaris ini dari database bersama?")) return;
+    delItem.dataset.busy = "1";
+    try {
+      await deleteLocal("inventory", id);
+      alert("Permintaan hapus inventaris diproses.");
+    } catch (err) {
+      alert("Gagal menghapus inventaris: " + (err.message || err));
+    } finally { delItem.dataset.busy = "0"; }
+    return;
+  }
+
+  const delRoom = target.closest("[data-roomdel]");
+  if (delRoom) {
+    e.preventDefault();
+    if (delRoom.dataset.busy === "1") return;
+    const id = delRoom.dataset.roomdel;
+    if (!id) { alert("ID ruangan tidak ditemukan. Muat ulang aplikasi."); return; }
+    const room = rooms.find(r => String(r.id) === String(id));
+    if (!room) { alert("Data ruangan tidak ditemukan pada data lokal. Muat ulang aplikasi dan coba lagi."); return; }
+    const linked = items.filter(i => String(i.room_id || "").trim() === String(id).trim());
+    if (linked.length) {
+      alert("Ruangan masih terhubung dengan " + linked.length + " data barang. Periksa menu Inventaris terlebih dahulu.");
+      return;
+    }
+    if (!confirm(`Hapus ruangan "${room.name || ""}"?`)) return;
+    delRoom.dataset.busy = "1";
+    try {
+      await deleteLocal("rooms", id);
+      alert("Permintaan hapus ruangan diproses. Jika belum hilang di perangkat lain, tekan Sinkronkan.");
+    } catch (err) {
+      alert("Gagal menghapus ruangan: " + (err.message || err));
+    } finally { delRoom.dataset.busy = "0"; }
+    return;
+  }
+}, true);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
 const isConfigured = () => SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("ISI_") && SUPABASE_ANON_KEY.length > 20 && !SUPABASE_ANON_KEY.includes("ISI_");
@@ -170,43 +226,7 @@ const row={id:edit||uuid(),code:$("itemCode").value.trim(),name:$("itemName").va
 await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada perangkat. Sinkronisasi akan berjalan jika internet tersedia.")});
 $("itemReset").addEventListener("click",resetItemForm);
 $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
-$("roomForm").addEventListener("submit",async e=>{e.preventDefault();if(!currentUser){alert("Masuk terlebih dahulu.");return}const old=rooms.find(r=>r.id===editingRoomId);const row={id:editingRoomId||uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:old?.created_by||currentUser.id};await saveLocal("rooms",row);editingRoomId=null;$("roomForm").reset();const submit=$("roomForm").querySelector('button[type="submit"]');if(submit)submit.textContent="Tambah Ruangan";alert(old?"Perubahan ruangan disimpan. Sinkronisasi otomatis akan berjalan jika online.":"Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
-$("roomsTable").addEventListener("click",async e=>{
- const editBtn=e.target.closest("[data-roomedit]");
- if(editBtn){
-   const rid=editBtn.dataset.roomedit;
-   const r=rooms.find(x=>String(x.id)===String(rid));
-   if(!r){alert("Data ruangan tidak ditemukan di perangkat. Muat ulang aplikasi lalu coba lagi.");return}
-   editingRoomId=r.id;
-   $("roomName").value=r.name||"";
-   $("roomType").value=r.type||"";
-   $("roomPIC").value=r.pic||"";
-   $("roomNotes").value=r.notes||"";
-   const submit=$("roomForm").querySelector('button[type="submit"]');
-   if(submit)submit.textContent="Simpan Perubahan";
-   $("roomForm").scrollIntoView({behavior:"smooth",block:"start"});
-   return;
- }
- const delBtn=e.target.closest("[data-roomdel]");
- if(!delBtn)return;
- const rid=delBtn.dataset.roomdel;
- const room=rooms.find(x=>String(x.id)===String(rid));
- if(!room){alert("Data ruangan tidak ditemukan di perangkat. Muat ulang aplikasi lalu coba lagi.");return}
- const linked=items.filter(i=>String(i.room_id||"").trim()===String(rid).trim());
- if(linked.length){
-   const names=linked.slice(0,5).map(i=>i.name||i.code||"Barang tanpa nama").join(", ");
-   alert("Ruangan belum bisa dihapus karena masih ada "+linked.length+" data barang yang terhubung"+(names?": "+names:"")+". Periksa menu Inventaris dan pastikan barang dipindahkan atau dihapus terlebih dahulu.");
-   return;
- }
- if(!confirm("Hapus ruangan \""+(room.name||"")+"\"? Tindakan ini akan disinkronkan ke database saat tersedia."))return;
- try{
-   await deleteLocal("rooms",rid);
-   alert("Perintah hapus ruangan telah disimpan di perangkat. Periksa status sinkronisasi untuk memastikan perubahan terkirim ke database.");
- }catch(err){
-   console.error("Gagal menghapus ruangan:",err);
-   alert("Ruangan belum berhasil dihapus: "+(err?.message||"kesalahan tidak diketahui")+". Data tidak dihapus dari database.");
- }
-});
+$("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
 $("itemSearch").addEventListener("input",render);
 if($("roomSearch")) $("roomSearch").addEventListener("input",render);
 function reportItems(){
