@@ -6,6 +6,41 @@ const STORE = "records";
 const QUEUE = "outbox";
 let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [], editingRoomId = null, dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
+// Pengaman aksi penting: gunakan delegasi pada document agar tetap bekerja
+// walaupun tabel dirender ulang atau listener tabel sebelumnya tidak terpasang.
+document.addEventListener("click", async e => {
+  const target = e.target instanceof Element ? e.target : e.target?.parentElement;
+  if (!target) return;
+  const printBtn = target.closest("#printReport");
+  if (printBtn) {
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    try {
+      if (typeof activateView === "function") activateView("reports");
+      if (typeof renderReport === "function") renderReport();
+      setTimeout(() => { try { window.print(); } catch (err) { alert("Cetak tidak dapat dibuka: " + (err.message || err)); } }, 250);
+    } catch (err) { alert("Gagal menyiapkan laporan cetak: " + (err.message || err)); }
+    return;
+  }
+  const delItem = target.closest("[data-del]");
+  if (delItem) {
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    const id = delItem.dataset.del;
+    if (!id || !confirm("Hapus inventaris ini dari database bersama?")) return;
+    try { await deleteLocal("inventory", id); alert("Permintaan hapus diproses. Jika offline, perubahan akan disinkronkan saat internet kembali."); }
+    catch (err) { alert("Gagal menghapus inventaris: " + (err.message || err)); }
+    return;
+  }
+  const delRoom = target.closest("[data-roomdel]");
+  if (delRoom) {
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    const id = delRoom.dataset.roomdel;
+    if (!id) return;
+    if (items.some(i => i.room_id === id)) { alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu."); return; }
+    if (!confirm("Hapus ruangan dari database bersama?")) return;
+    try { await deleteLocal("rooms", id); alert("Permintaan hapus ruangan diproses."); }
+    catch (err) { alert("Gagal menghapus ruangan: " + (err.message || err)); }
+  }
+}, true);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
 const isConfigured = () => SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("ISI_") && SUPABASE_ANON_KEY.length > 20 && !SUPABASE_ANON_KEY.includes("ISI_");
@@ -169,7 +204,7 @@ const edit=$("itemId").value,old=items.find(x=>x.id===edit);const photo=await fi
 const row={id:edit||uuid(),code:$("itemCode").value.trim(),name:$("itemName").value.trim(),category:$("itemCategory").value,room_id:$("itemRoom").value||null,qty,year:$("itemYear").value?+$("itemYear").value:null,good,minor,major,recorder:$("itemRecorder").value.trim(),notes:$("itemNotes").value.trim(),photo:photo||old?.photo||"",damage_photo:damage||old?.damage_photo||"",created_by:old?.created_by||currentUser.id};
 await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada perangkat. Sinkronisasi akan berjalan jika internet tersedia.")});
 $("itemReset").addEventListener("click",resetItemForm);
-$("itemsTable").addEventListener("click",async e=>{const target=e.target.closest("button");if(!target)return;const edit=target.dataset.edit,del=target.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
+$("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
 $("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
 $("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
@@ -351,7 +386,7 @@ $("exportReport").addEventListener("click",()=>{
   const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
 });
-if($("printReport")) $("printReport").addEventListener("click",()=>{
+$("printReport").addEventListener("click",()=>{
    activateView("reports");
    renderReport();
    setTimeout(()=>{
