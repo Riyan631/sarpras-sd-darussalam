@@ -554,7 +554,7 @@ function initQRUI(){
 }
 function populateQRRoomFilter(){const el=$("qrRoomFilter");if(!el)return;const selected=el.value;el.innerHTML='<option value="">Semua ruangan</option>'+rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");if(rooms.some(r=>r.id===selected))el.value=selected}
 function qrFilteredItems(){const roomId=$("qrRoomFilter")?.value||"";return items.filter(x=>!roomId||String(x.room_id||"")===String(roomId))}
-function populateQRTargets(){const el=$("qrTarget");if(!el)return;const selected=el.value;const arr=qrFilteredItems();el.innerHTML='<option value="">Pilih barang</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc((x.code||"Tanpa kode")+" — "+(x.name||"Barang tanpa nama"))}</option>`).join("");if(arr.some(x=>x.id===selected))el.value=selected}
+function populateQRTargets(){const el=$("qrTarget");if(!el)return;const selected=el.value;const arr=qrFilteredItems();el.innerHTML='<option value="">Pilih barang</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc((x.code||"Tanpa kode")+" — "+(x.name||"Barang tanpa nama")+" [ID: "+String(x.id||"").slice(-6)+"]")}</option>`).join("");if(arr.some(x=>x.id===selected))el.value=selected}
 function renderQRRoomItems(){const target=$("qrRoomItems"),summary=$("qrRoomSummary");if(!target||!summary)return;const rows=qrFilteredItems();const roomId=$("qrRoomFilter")?.value||"";const room=rooms.find(r=>String(r.id)===String(roomId));summary.textContent=(room?`Ruangan: ${room.name} · `:"Semua ruangan · ")+`${rows.length} data barang (setiap baris memiliki QR sendiri)`;target.innerHTML=table(["Kode","Nama Barang","Ruangan","Jumlah"],rows.map(x=>[esc(x.code||"-"),esc(x.name||"-"),esc(roomLabel(x.room_id)||"Belum ditentukan"),Number(x.qty)||0]))}
 function populateInspectionTargets(){const type=$("inspectTargetType")?.value||"item",el=$("inspectTarget");if(!el)return;const arr=type==="room"?rooms:items;el.innerHTML='<option value="">Pilih data</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc(type==="room"?x.name:((x.code||"Tanpa kode")+" — "+x.name))}</option>`).join("");if(type==="item"){$("inspectQty").value=1}}
 async function makeSelectedQR(){const id=$("qrTarget")?.value||"",out=$("qrOutput");if(out)out.innerHTML="";if(!id){setMsg("qrMsg","Pilih barang pada daftar terlebih dahulu.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const row=items.find(x=>String(x.id)===String(id));if(!row){setMsg("qrMsg","Barang tidak ditemukan. Pilih ulang ruangan dan barang.");populateQRRoomFilter();populateQRTargets();renderQRRoomItems();return}const payload=qrPayload("item",id);const box=document.createElement("div");box.style.cssText="display:inline-block;padding:16px;border:1px solid #ddd;border-radius:10px;text-align:center;background:white;color:#111";const canvas=document.createElement("div");box.appendChild(canvas);const title=document.createElement("b");title.textContent=(row.code?row.code+" — ":"")+row.name;box.appendChild(title);out.appendChild(box);try{new QRCode(canvas,{text:payload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});window._sarprasCurrentQR={type:"item",id,payload,label:title.textContent};setMsg("qrMsg","QR barang berhasil dibuat. QR siap dicetak.",true)}catch(err){console.error(err);setMsg("qrMsg","QR gagal dibuat: "+(err.message||err))}}
@@ -570,12 +570,32 @@ async function printAllItemQR(){
     setMsg("qrMsg", "Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");
     return;
   }
-  const html = [];
-  // Cetak satu label untuk setiap unit sesuai kolom jumlah.
-  // Jika jumlah komputer 2, tampilkan 2 label QR untuk data inventaris tersebut.
-  for (const row of selectedItems) {
+
+  // Urutkan berdasarkan kategori, lalu kode inventaris agar kode INV tetap berurutan.
+  const sortedItems = [...selectedItems].sort((a,b) => {
+    const ca = String(a.category || "Lainnya").localeCompare(String(b.category || "Lainnya"), "id");
+    if (ca) return ca;
+    return String(a.code || "").localeCompare(String(b.code || ""), "id", {numeric:true});
+  });
+  const sections = [];
+  let currentCategory = null;
+  let sectionLabels = [];
+
+  const flushSection = () => {
+    if (sectionLabels.length) {
+      sections.push(`<section class="qr-group"><h3>${esc(currentCategory || "Lainnya")}</h3><div class="labels">${sectionLabels.join("")}</div></section>`);
+      sectionLabels = [];
+    }
+  };
+
+  for (const row of sortedItems) {
     if (!row || !row.id) continue;
-    const qty = Math.max(1, Math.floor(Number(row.qty) || 1));
+    const category = String(row.category || "Lainnya");
+    if (currentCategory !== category) {
+      flushSection();
+      currentCategory = category;
+    }
+
     const holder = document.createElement("div");
     try {
       new QRCode(holder, {
@@ -584,6 +604,7 @@ async function printAllItemQR(){
         height: 120,
         correctLevel: QRCode.CorrectLevel.M
       });
+
       let image = "";
       const canvas = holder.querySelector("canvas");
       if (canvas) {
@@ -604,30 +625,41 @@ async function printAllItemQR(){
         console.warn("QR tidak menghasilkan gambar untuk baris inventaris", row.id);
         continue;
       }
-      for (let unit = 0; unit < qty; unit++) {
-        const displayCode = qty > 1
-          ? `${row.code || "Tanpa kode"}-${String(unit + 1).padStart(2, "0")}`
-          : (row.code || "Tanpa kode");
-        html.push(`<div class="label"><img src="${image}" alt="QR"><b>${esc(displayCode)}</b><span>${esc(row.name || "")}</span><small>${esc(roomLabel(row.room_id) || "Belum ditentukan")}</small></div>`);
+
+      const qty = Math.max(1, Math.floor(Number(row.qty) || 1));
+      for (let unit = 1; unit <= qty; unit++) {
+        const baseCode = String(row.code || "Tanpa kode");
+        const labelCode = qty > 1 ? `${baseCode}-${String(unit).padStart(2,"0")}` : baseCode;
+        sectionLabels.push(
+          `<div class="label"><img src="${image}" alt="QR"><b>${esc(labelCode)}</b><span>${esc(row.name || "")}</span><small>${esc(roomLabel(row.room_id) || "Belum ditentukan")}</small></div>`
+        );
       }
     } catch (err) {
       console.error("Gagal membuat QR untuk baris inventaris", row.id, err);
     }
   }
-  if (!html.length) {
+  flushSection();
+
+  const labelCount = sections.reduce((total, section) => {
+    const matches = section.match(/class="label"/g);
+    return total + (matches ? matches.length : 0);
+  }, 0);
+  if (!labelCount) {
     setMsg("qrMsg", "QR tidak berhasil dibuat. Periksa koneksi generator QR lalu coba lagi.");
     return;
   }
+
   const roomId = $("qrRoomFilter")?.value || "";
   const room = rooms.find(r => String(r.id) === String(roomId));
   printQRMarkup(
-    html.join(""),
+    sections.join(""),
     "Label QR SARPRAS" + (room ? " — " + room.name : " — Semua Ruangan"),
+    false,
     true
   );
-  setMsg("qrMsg", `${html.length} label QR disiapkan untuk dicetak (mengikuti jumlah unit pada inventaris).`, true);
+  setMsg("qrMsg", `${labelCount} label QR disiapkan, dikelompokkan berdasarkan jenis barang dan diurutkan menurut kode INV.`, true);
 }
-function printQRMarkup(html,title,grid=false){const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak QR.");return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:12px}.labels{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.label{border:1px solid #aaa;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:5px;break-inside:avoid;text-align:center;font-size:12px}.label img{width:120px;height:120px;object-fit:contain} @media print{body{padding:0}}</style></head><body><h2>${esc(title)}</h2><div class="${grid?"labels":""}">${html}</div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+function printQRMarkup(html,title,grid=false,grouped=false){const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak QR.");return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:12px;color:#111}.labels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.label{border:1px solid #aaa;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:5px;break-inside:avoid;page-break-inside:avoid;text-align:center;font-size:12px}.label img{width:120px;height:120px;object-fit:contain}.qr-group{margin:0 0 22px;break-inside:auto}.qr-group h3{font-size:16px;margin:18px 0 8px;padding:6px 8px;background:#e8efeb;border-bottom:1px solid #789;border-radius:4px;break-after:avoid}.qr-group .labels{margin-bottom:8px}@media print{body{padding:0}.qr-group h3{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body><h2>${esc(title)}</h2>${grouped?html:`<div class="${grid?"labels":""}">${html}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
 async function saveInspection(e){e.preventDefault();if(!currentUser){setMsg("inspectionMsg","Masuk terlebih dahulu.");return}const type=$("inspectTargetType").value,id=$("inspectTarget").value,qty=Number($("inspectQty").value);if(!id){setMsg("inspectionMsg","Pilih barang atau ruangan.");return}if(!Number.isInteger(qty)||qty<0){setMsg("inspectionMsg","Jumlah ditemukan harus bilangan bulat minimal 0.");return}const isRoom=type==="room",target=(isRoom?rooms:items).find(x=>x.id===id);if(!target){setMsg("inspectionMsg","Data target tidak ditemukan.");return}const now=new Date().toISOString();const row={id:uuid(),target_type:type,target_id:id,item_id:isRoom?null:id,room_id:isRoom?id:(target.room_id||null),item_name:isRoom?"":target.name||"",item_code:isRoom?"":target.code||"",room_name:isRoom?target.name||"":roomLabel(target.room_id)||"",result:$("inspectResult").value,condition:$("inspectCondition").value,found_qty:qty,notes:$("inspectNotes").value.trim(),performed_by:currentUser.id,performed_by_email:currentUser.email||"",inspected_at:now,created_at:now};try{await cacheRecord("inventory_inspections",row);await queueOp("inventory_inspections","upsert",row);if(navigator.onLine)await syncQueue();await localLoad();$("inspectNotes").value="";setMsg("inspectionMsg",navigator.onLine?"Pemeriksaan disimpan. Periksa indikator sinkronisasi untuk memastikan pengiriman ke server.":"Pemeriksaan disimpan di perangkat dan menunggu koneksi.",true)}catch(err){console.error(err);setMsg("inspectionMsg","Gagal menyimpan pemeriksaan: "+(err.message||err))}}
 function inspectionResultLabel(v){return ({sesuai:"Sesuai",rusak_ringan:"Rusak ringan",rusak_berat:"Rusak berat",tidak_ditemukan:"Tidak ditemukan",jumlah_tidak_sesuai:"Jumlah tidak sesuai",perlu_perbaikan:"Perlu perbaikan"})[v]||v||"-"}
 function filteredInspections(){const q=($("inspectionSearch")?.value||"").toLocaleLowerCase("id-ID");return inspections.filter(r=>[inspectionTargetLabel(r),r.result,r.condition,r.notes,r.performed_by_email,r.room_name,r.item_code].join(" ").toLocaleLowerCase("id-ID").includes(q))}
