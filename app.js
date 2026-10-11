@@ -173,6 +173,7 @@ $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("
 $("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
 $("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
+if($("roomSearch")) $("roomSearch").addEventListener("input",render);
 function reportItems(){
   const roomFilter=$("reportRoomFilter")?.value||"";
   return items.filter(i=>
