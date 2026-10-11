@@ -4,7 +4,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_cGvCIZszseAnEC4qOiHikw_DrAqliM3";
 const DB_NAME = "sarpras-darussalam-local-v2";
 const STORE = "records";
 const QUEUE = "outbox";
-let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], editingRoomId = null;
+let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [];
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
@@ -18,7 +18,7 @@ function setMsg(id,msg,good=false){const el=$(id);if(el){el.textContent=msg;el.c
 function onlineStatus(){$("netStatus").textContent=navigator.onLine?"Online":"Offline";$("netDot").style.color=navigator.onLine?"#8ef0a5":"#ff9b9b";$("syncStatus").textContent="";$("syncExplanation").textContent=navigator.onLine?"Koneksi tersedia. Perubahan lokal akan dikirim ke database bersama.":"Offline. Perubahan disimpan di perangkat ini dan menunggu koneksi."}
 function showApp(){ $("loginPanel").classList.add("hidden");$("appPanel").classList.remove("hidden");$("userLabel").textContent=currentUser?.email||"Pengguna";$("roleLabel").textContent=currentRole==="admin_utama"?"Admin utama":(currentRole==="admin"?"Admin":"Petugas");document.querySelectorAll(".admin-only").forEach(e=>e.classList.toggle("hidden",currentRole!=="admin_utama")); }
 function showLogin(){ $("appPanel").classList.add("hidden");$("loginPanel").classList.remove("hidden"); }
-function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();}
+function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();if(name==="qr")renderQRHome();}
 function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(v=>`<td>${v??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${head.length}" class="muted">Belum ada data.</td></tr>`}</tbody></table>`}
 function roomLabel(id){return rooms.find(r=>r.id===id)?.name||""}
 function cond(i){return `<span class="pill">${i.good||0} baik</span> <span class="pill">${i.minor||0} ringan</span> <span class="pill">${i.major||0} berat</span>`}
@@ -27,12 +27,10 @@ $("countKinds").textContent=items.length;$("countUnits").textContent=items.reduc
 $("itemRoom").innerHTML='<option value="">Belum ditentukan</option>'+rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
 const q=($("itemSearch").value||"").toLowerCase(), visible=items.filter(i=>[i.code,i.name,i.category,roomLabel(i.room_id)].join(" ").toLowerCase().includes(q));
 $("itemsTable").innerHTML=table(["Kode","Nama / kategori","Ruangan","Jumlah","Kondisi","Foto","Tindakan"],visible.map(i=>[esc(i.code||"-"),`<b>${esc(i.name)}</b><br>${esc(i.category)}<br><small>${esc(i.year||"")}</small>`,esc(roomLabel(i.room_id)||"-"),i.qty,cond(i),`${i.photo?`<img class="thumb" src="${i.photo}" alt="Foto barang">`:""}${i.damage_photo?`<img class="thumb" src="${i.damage_photo}" alt="Foto kerusakan">`:""}`,`<button class="btn light" data-edit="${i.id}">Edit</button> <button class="btn danger" data-del="${i.id}">Hapus</button><br><small>${esc(i.sync_state||"tersimpan")}</small>`]));
-const roomQuery=($("roomSearch")?.value||"").trim().toLocaleLowerCase("id-ID");
-const visibleRooms=rooms.filter(r=>[r.name,r.type,r.pic].some(v=>String(v||"").toLocaleLowerCase("id-ID").includes(roomQuery)));
-$("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Jumlah unit","Tindakan"],visibleRooms.map(r=>{const roomItems=items.filter(i=>i.room_id===r.id);const kindCount=roomItems.length;const unitCount=roomItems.reduce((sum,i)=>sum+(Number(i.qty)||0),0);return [esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),kindCount,unitCount,`<button class="btn light" data-roomedit="${r.id}">Edit</button> <button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]}));
+$("roomsTable").innerHTML=table(["Ruangan","Jenis","Penanggung jawab","Keterangan","Jumlah jenis barang","Tindakan"],rooms.map(r=>[esc(r.name),esc(r.type),esc(r.pic||"-"),esc(r.notes||"-"),items.filter(i=>i.room_id===r.id).length,`<button class="btn danger" data-roomdel="${r.id}">Hapus</button>`]));
 $("recentTable").innerHTML=table(["Kode","Barang","Ruangan","Jumlah","Kondisi"],[...items].sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")).slice(0,5).map(i=>[esc(i.code||"-"),esc(i.name),esc(roomLabel(i.room_id)||"-"),i.qty,cond(i)]));
 renderDashboardDetails();
-renderReport();renderMutations();updateQueueStatus();
+renderReport();renderMutations();renderInspections();updateQueueStatus();
 }
 function renderDashboardDetails(){
   const recent=$("recentTable");
@@ -82,7 +80,7 @@ function renderDashboardDetails(){
       </div>
     </div>`;
 }
-async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);mutations=all.filter(x=>x.table==="mutations").map(x=>x.data).sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));render()}
+async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);mutations=all.filter(x=>x.table==="mutations").map(x=>x.data).sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));inspections=all.filter(x=>x.table==="inventory_inspections").map(x=>x.data).sort((a,b)=>(b.inspected_at||b.created_at||"").localeCompare(a.inspected_at||a.created_at||""));render()}
 async function cacheRecord(tableName,data){await dbPut(STORE,{key:tableName+":"+data.id,table:tableName,data});}
 async function removeCached(tableName,id){await dbDelete(STORE,tableName+":"+id)}
 async function queueOp(tableName,op,data,id=data.id){await dbPut(QUEUE,{id:uuid(),table:tableName,op,data,row_id:id,queued_at:new Date().toISOString()});}
@@ -109,7 +107,7 @@ async function syncQueue(){
 async function fetchRemote() {
   if (!sb || !navigator.onLine || !currentUser) return;
 
-  for (const t of ["rooms", "inventory", "mutations"]) {
+  for (const t of ["rooms", "inventory", "mutations", "inventory_inspections"]) {
     const { data, error } = await sb.from(t).select("*");
 
     // Jika server gagal dibaca, jangan mengubah cache tabel ini.
@@ -178,14 +176,9 @@ const row={id:edit||uuid(),code:$("itemCode").value.trim(),name:$("itemName").va
 await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada perangkat. Sinkronisasi akan berjalan jika internet tersedia.")});
 $("itemReset").addEventListener("click",resetItemForm);
 $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
-// Tombol batal edit ditambahkan tanpa perlu mengubah index.html.
-const roomSubmitButton=$("roomForm").querySelector('button[type="submit"]');
-if(roomSubmitButton){roomSubmitButton.textContent="Simpan Ruangan";const cancelRoomButton=document.createElement("button");cancelRoomButton.type="button";cancelRoomButton.id="roomEditCancel";cancelRoomButton.className="btn light";cancelRoomButton.textContent="Batal Edit";cancelRoomButton.hidden=true;roomSubmitButton.insertAdjacentElement("afterend",cancelRoomButton);cancelRoomButton.addEventListener("click",resetRoomForm)}
-function resetRoomForm(){editingRoomId=null;$("roomForm").reset();if(roomSubmitButton)roomSubmitButton.textContent="Simpan Ruangan";const cancel=$("roomEditCancel");if(cancel)cancel.hidden=true}
-$("roomForm").addEventListener("submit",async e=>{e.preventDefault();if(!currentUser){alert("Silakan masuk terlebih dahulu.");return}const old=rooms.find(r=>r.id===editingRoomId);const row={id:editingRoomId||uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:old?.created_by||currentUser.id};if(!row.name){alert("Nama ruangan wajib diisi.");return}if(rooms.some(r=>r.id!==row.id&&r.name.trim().toLowerCase()===row.name.toLowerCase())){alert("Nama ruangan tersebut sudah ada. Gunakan nama yang berbeda.");return}const wasEditing=Boolean(editingRoomId);await saveLocal("rooms",row);resetRoomForm();alert(wasEditing?"Perubahan ruangan disimpan. Sinkronisasi berjalan jika internet tersedia.":"Ruangan ditambahkan. Sinkronisasi berjalan jika internet tersedia.")});
-$("roomsTable").addEventListener("click",async e=>{const editId=e.target.closest("[data-roomedit]")?.dataset.roomedit;const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(editId){const r=rooms.find(x=>x.id===editId);if(!r)return;editingRoomId=r.id;$("roomName").value=r.name||"";$("roomType").value=r.type||"Kelas";$("roomPIC").value=r.pic||"";$("roomNotes").value=r.notes||"";if(roomSubmitButton)roomSubmitButton.textContent="Simpan Perubahan";const cancel=$("roomEditCancel");if(cancel)cancel.hidden=false;window.scrollTo({top:0,behavior:"smooth"});$("roomName").focus();return}if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
+$("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
+$("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
-$("roomSearch")?.addEventListener("input",render);
 function reportFilterLabels(){
   const cat=$("reportCategory")?.selectedOptions?.[0]?.textContent||"Semua kategori";
   const condLabel=$("reportCondition")?.selectedOptions?.[0]?.textContent||"Semua kondisi";
@@ -557,6 +550,7 @@ async function saveMutation(e) {
   }
 }
 initMutationUI();
+initQRUI();
 
 window.addEventListener("online",async()=>{onlineStatus();if(sb&&currentUser){await syncQueue();await fetchRemote()}});
 window.addEventListener("offline",onlineStatus);
