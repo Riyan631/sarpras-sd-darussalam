@@ -171,7 +171,42 @@ await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada peran
 $("itemReset").addEventListener("click",resetItemForm);
 $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
 $("roomForm").addEventListener("submit",async e=>{e.preventDefault();if(!currentUser){alert("Masuk terlebih dahulu.");return}const old=rooms.find(r=>r.id===editingRoomId);const row={id:editingRoomId||uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:old?.created_by||currentUser.id};await saveLocal("rooms",row);editingRoomId=null;$("roomForm").reset();const submit=$("roomForm").querySelector('button[type="submit"]');if(submit)submit.textContent="Tambah Ruangan";alert(old?"Perubahan ruangan disimpan. Sinkronisasi otomatis akan berjalan jika online.":"Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
-$("roomsTable").addEventListener("click",async e=>{const editBtn=e.target.closest("[data-roomedit]");if(editBtn){const rid=editBtn.dataset.roomedit;const r=rooms.find(x=>x.id===rid);if(!r){alert("Data ruangan tidak ditemukan di perangkat.");return}editingRoomId=r.id;$("roomName").value=r.name||"";$("roomType").value=r.type||"";$("roomPIC").value=r.pic||"";$("roomNotes").value=r.notes||"";const submit=$("roomForm").querySelector('button[type="submit"]');if(submit)submit.textContent="Simpan Perubahan";$("roomForm").scrollIntoView({behavior:"smooth",block:"start"});return}const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
+$("roomsTable").addEventListener("click",async e=>{
+ const editBtn=e.target.closest("[data-roomedit]");
+ if(editBtn){
+   const rid=editBtn.dataset.roomedit;
+   const r=rooms.find(x=>String(x.id)===String(rid));
+   if(!r){alert("Data ruangan tidak ditemukan di perangkat. Muat ulang aplikasi lalu coba lagi.");return}
+   editingRoomId=r.id;
+   $("roomName").value=r.name||"";
+   $("roomType").value=r.type||"";
+   $("roomPIC").value=r.pic||"";
+   $("roomNotes").value=r.notes||"";
+   const submit=$("roomForm").querySelector('button[type="submit"]');
+   if(submit)submit.textContent="Simpan Perubahan";
+   $("roomForm").scrollIntoView({behavior:"smooth",block:"start"});
+   return;
+ }
+ const delBtn=e.target.closest("[data-roomdel]");
+ if(!delBtn)return;
+ const rid=delBtn.dataset.roomdel;
+ const room=rooms.find(x=>String(x.id)===String(rid));
+ if(!room){alert("Data ruangan tidak ditemukan di perangkat. Muat ulang aplikasi lalu coba lagi.");return}
+ const linked=items.filter(i=>String(i.room_id||"").trim()===String(rid).trim());
+ if(linked.length){
+   const names=linked.slice(0,5).map(i=>i.name||i.code||"Barang tanpa nama").join(", ");
+   alert("Ruangan belum bisa dihapus karena masih ada "+linked.length+" data barang yang terhubung"+(names?": "+names:"")+". Periksa menu Inventaris dan pastikan barang dipindahkan atau dihapus terlebih dahulu.");
+   return;
+ }
+ if(!confirm("Hapus ruangan \""+(room.name||"")+"\"? Tindakan ini akan disinkronkan ke database saat tersedia."))return;
+ try{
+   await deleteLocal("rooms",rid);
+   alert("Perintah hapus ruangan telah disimpan di perangkat. Periksa status sinkronisasi untuk memastikan perubahan terkirim ke database.");
+ }catch(err){
+   console.error("Gagal menghapus ruangan:",err);
+   alert("Ruangan belum berhasil dihapus: "+(err?.message||"kesalahan tidak diketahui")+". Data tidak dihapus dari database.");
+ }
+});
 $("itemSearch").addEventListener("input",render);
 if($("roomSearch")) $("roomSearch").addEventListener("input",render);
 function reportItems(){
