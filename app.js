@@ -38,6 +38,23 @@ document.addEventListener("click", async e => {
     return;
   }
 
+  const editRoom = target.closest("[data-roomedit]");
+  if (editRoom) {
+    e.preventDefault();
+    const id = editRoom.dataset.roomedit;
+    const room = rooms.find(r => String(r.id) === String(id));
+    if (!room) { alert("Data ruangan tidak ditemukan. Muat ulang aplikasi lalu coba lagi."); return; }
+    editingRoomId = room.id;
+    $("roomName").value = room.name || "";
+    $("roomType").value = room.type || "";
+    $("roomPIC").value = room.pic || "";
+    $("roomNotes").value = room.notes || "";
+    const submit = $("roomForm").querySelector('button[type="submit"]');
+    if (submit) submit.textContent = "Simpan Perubahan";
+    $("roomForm").scrollIntoView({behavior:"smooth", block:"start"});
+    return;
+  }
+
   const delRoom = target.closest("[data-roomdel]");
   if (delRoom) {
     e.preventDefault();
@@ -226,7 +243,21 @@ const row={id:edit||uuid(),code:$("itemCode").value.trim(),name:$("itemName").va
 await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada perangkat. Sinkronisasi akan berjalan jika internet tersedia.")});
 $("itemReset").addEventListener("click",resetItemForm);
 $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
-$("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
+$("roomForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ if(!currentUser){alert("Masuk terlebih dahulu.");return;}
+ const old=editingRoomId?rooms.find(r=>String(r.id)===String(editingRoomId)):null;
+ if(editingRoomId&&!old){alert("Ruangan yang akan diedit tidak ditemukan. Muat ulang aplikasi dan coba lagi.");editingRoomId=null;return;}
+ const row={id:old?old.id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:old?.created_by||currentUser.id};
+ try{
+   await saveLocal("rooms",row);
+   editingRoomId=null;
+   $("roomForm").reset();
+   const submit=$("roomForm").querySelector('button[type="submit"]');
+   if(submit)submit.textContent="Tambah Ruangan";
+   alert(old?"Perubahan ruangan disimpan. Sinkronisasi akan berjalan jika internet tersedia.":"Ruangan disimpan. Sinkronisasi otomatis akan berjalan jika internet tersedia.");
+ }catch(err){alert("Gagal menyimpan ruangan: "+(err.message||err));}
+});
 $("itemSearch").addEventListener("input",render);
 if($("roomSearch")) $("roomSearch").addEventListener("input",render);
 function reportItems(){
