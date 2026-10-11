@@ -68,6 +68,9 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
   .toolbar-actions button{flex:1}
 }
 @media print{
+  /* Hilangkan judul panel di pojok kiri atas; judul laporan resmi tetap tampil */
+  #view-reports > .panel > h2{display:none!important;}
+
   @page{size:A4 landscape;margin:12mm}
   body{background:#fff!important;color:#111!important;font-size:10pt!important}
   header,nav,.sidebar,.navbar,.admin-only,button,.no-print,.actions,.action-buttons{display:none!important}
