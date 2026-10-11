@@ -203,10 +203,31 @@ async function syncQueue(){
 }
 async function fetchRemote(){
  if(!sb||!navigator.onLine||!currentUser)return;
- for(const t of ["rooms","inventory","mutations"]){
-   const {data,error}=await sb.from(t).select("*");if(error){console.warn(error.message);continue}
-   const pending=await dbAll(QUEUE);const pendingIds=new Set(pending.filter(op=>op.table===t).map(op=>op.row_id));for(const row of (data||[])){if(pendingIds.has(row.id))continue;row.sync_state="tersinkron";await cacheRecord(t,row)}
+ // Ambil antrean sekali, lalu muat tabel secara paralel agar startup lebih cepat.
+ const pending=await dbAll(QUEUE);
+ const pendingByTable=new Map();
+ for(const op of pending){
+   if(!pendingByTable.has(op.table))pendingByTable.set(op.table,new Set());
+   pendingByTable.get(op.table).add(String(op.row_id));
  }
+ const tables=["rooms","inventory","mutations"];
+ const results=await Promise.all(tables.map(async t=>{
+   try{
+     const {data,error}=await sb.from(t).select("*");
+     if(error){console.warn("Gagal memuat "+t+":",error.message);return [];}
+     return (data||[]).map(row=>({table:t,row}));
+   }catch(err){console.warn("Gagal memuat "+t+":",err.message);return [];}
+ }));
+ const writes=[];
+ for(const group of results){
+   for(const entry of group){
+     const t=entry.table,row=entry.row;
+     if(pendingByTable.get(t)?.has(String(row.id)))continue;
+     row.sync_state="tersinkron";
+     writes.push(cacheRecord(t,row));
+   }
+ }
+ await Promise.all(writes);
  await localLoad();
 }
 async function initAuth(){
