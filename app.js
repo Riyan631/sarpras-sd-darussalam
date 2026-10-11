@@ -571,9 +571,11 @@ async function printAllItemQR(){
     return;
   }
   const html = [];
-  // Satu label untuk SETIAP baris inventaris; nama yang sama tidak digabung.
+  // Cetak satu label untuk setiap unit sesuai kolom jumlah.
+  // Jika jumlah komputer 2, tampilkan 2 label QR untuk data inventaris tersebut.
   for (const row of selectedItems) {
     if (!row || !row.id) continue;
+    const qty = Math.max(1, Math.floor(Number(row.qty) || 1));
     const holder = document.createElement("div");
     try {
       new QRCode(holder, {
@@ -582,8 +584,6 @@ async function printAllItemQR(){
         height: 120,
         correctLevel: QRCode.CorrectLevel.M
       });
-      // qrcodejs biasanya membuat canvas; gunakan itu langsung agar tidak
-      // bergantung pada waktu pemuatan gambar atau menghilangkan label.
       let image = "";
       const canvas = holder.querySelector("canvas");
       if (canvas) {
@@ -604,9 +604,8 @@ async function printAllItemQR(){
         console.warn("QR tidak menghasilkan gambar untuk baris inventaris", row.id);
         continue;
       }
-      html.push(
-        `<div class="label"><img src="${image}" alt="QR"><b>${esc(row.code || "Tanpa kode")}</b><span>${esc(row.name || "")}</span><small>${esc(roomLabel(row.room_id) || "Belum ditentukan")}</small></div>`
-      );
+      const label = `<div class="label"><img src="${image}" alt="QR"><b>${esc(row.code || "Tanpa kode")}</b><span>${esc(row.name || "")}</span><small>${esc(roomLabel(row.room_id) || "Belum ditentukan")}</small></div>`;
+      for (let unit = 0; unit < qty; unit++) html.push(label);
     } catch (err) {
       console.error("Gagal membuat QR untuk baris inventaris", row.id, err);
     }
@@ -622,7 +621,7 @@ async function printAllItemQR(){
     "Label QR SARPRAS" + (room ? " — " + room.name : " — Semua Ruangan"),
     true
   );
-  setMsg("qrMsg", `${html.length} label QR disiapkan untuk dicetak (satu label per baris barang).`, true);
+  setMsg("qrMsg", `${html.length} label QR disiapkan untuk dicetak (mengikuti jumlah unit pada inventaris).`, true);
 }
 function printQRMarkup(html,title,grid=false){const w=window.open("","_blank");if(!w){alert("Izinkan pop-up untuk mencetak QR.");return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:12px}.labels{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.label{border:1px solid #aaa;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:5px;break-inside:avoid;text-align:center;font-size:12px}.label img{width:120px;height:120px;object-fit:contain} @media print{body{padding:0}}</style></head><body><h2>${esc(title)}</h2><div class="${grid?"labels":""}">${html}</div><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
 async function saveInspection(e){e.preventDefault();if(!currentUser){setMsg("inspectionMsg","Masuk terlebih dahulu.");return}const type=$("inspectTargetType").value,id=$("inspectTarget").value,qty=Number($("inspectQty").value);if(!id){setMsg("inspectionMsg","Pilih barang atau ruangan.");return}if(!Number.isInteger(qty)||qty<0){setMsg("inspectionMsg","Jumlah ditemukan harus bilangan bulat minimal 0.");return}const isRoom=type==="room",target=(isRoom?rooms:items).find(x=>x.id===id);if(!target){setMsg("inspectionMsg","Data target tidak ditemukan.");return}const now=new Date().toISOString();const row={id:uuid(),target_type:type,target_id:id,item_id:isRoom?null:id,room_id:isRoom?id:(target.room_id||null),item_name:isRoom?"":target.name||"",item_code:isRoom?"":target.code||"",room_name:isRoom?target.name||"":roomLabel(target.room_id)||"",result:$("inspectResult").value,condition:$("inspectCondition").value,found_qty:qty,notes:$("inspectNotes").value.trim(),performed_by:currentUser.id,performed_by_email:currentUser.email||"",inspected_at:now,created_at:now};try{await cacheRecord("inventory_inspections",row);await queueOp("inventory_inspections","upsert",row);if(navigator.onLine)await syncQueue();await localLoad();$("inspectNotes").value="";setMsg("inspectionMsg",navigator.onLine?"Pemeriksaan disimpan. Periksa indikator sinkronisasi untuk memastikan pengiriman ke server.":"Pemeriksaan disimpan di perangkat dan menunggu koneksi.",true)}catch(err){console.error(err);setMsg("inspectionMsg","Gagal menyimpan pemeriksaan: "+(err.message||err))}}
