@@ -557,8 +557,48 @@ function qrFilteredItems(){const roomId=$("qrRoomFilter")?.value||"";return item
 function populateQRTargets(){const el=$("qrTarget");if(!el)return;const selected=el.value;const arr=qrFilteredItems();el.innerHTML='<option value="">Pilih barang</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc((x.code||"Tanpa kode")+" — "+(x.name||"Barang tanpa nama"))}</option>`).join("");if(arr.some(x=>x.id===selected))el.value=selected}
 function renderQRRoomItems(){const target=$("qrRoomItems"),summary=$("qrRoomSummary");if(!target||!summary)return;const rows=qrFilteredItems();const roomId=$("qrRoomFilter")?.value||"";const room=rooms.find(r=>String(r.id)===String(roomId));summary.textContent=(room?`Ruangan: ${room.name} · `:"Semua ruangan · ")+`${rows.length} data barang (setiap baris memiliki QR sendiri)`;target.innerHTML=table(["Kode","Nama Barang","Ruangan","Jumlah"],rows.map(x=>[esc(x.code||"-"),esc(x.name||"-"),esc(roomLabel(x.room_id)||"Belum ditentukan"),Number(x.qty)||0]))}
 function populateInspectionTargets(){const type=$("inspectTargetType")?.value||"item",el=$("inspectTarget");if(!el)return;const arr=type==="room"?rooms:items;el.innerHTML='<option value="">Pilih data</option>'+arr.map(x=>`<option value="${esc(x.id)}">${esc(type==="room"?x.name:((x.code||"Tanpa kode")+" — "+x.name))}</option>`).join("");if(type==="item"){$("inspectQty").value=1}}
-async function makeSelectedQR(){const id=$("qrTarget")?.value||"",out=$("qrOutput");if(out)out.innerHTML="";if(!id){setMsg("qrMsg","Pilih barang pada daftar terlebih dahulu.");return}const ok=await loadQRCodeLibrary();if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}const row=items.find(x=>String(x.id)===String(id));if(!row){setMsg("qrMsg","Barang tidak ditemukan. Pilih ulang ruangan dan barang.");populateQRRoomFilter();populateQRTargets();renderQRRoomItems();return}const payload=qrPayload("item",id);const box=document.createElement("div");box.style.cssText="display:inline-block;padding:16px;border:1px solid #ddd;border-radius:10px;text-align:center;background:white;color:#111";const canvas=document.createElement("div");box.appendChild(canvas);const title=document.createElement("b");title.textContent=(row.code?row.code+" — ":"")+row.name;box.appendChild(title);out.appendChild(box);try{new QRCode(canvas,{text:payload,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});window._sarprasCurrentQR={type:"item",id,payload,label:title.textContent};setMsg("qrMsg","QR barang berhasil dibuat. QR siap dicetak.",true)}catch(err){console.error(err);setMsg("qrMsg","QR gagal dibuat: "+(err.message||err))}}
-function printSelectedQR(){const out=$("qrOutput");if(!out?.querySelector("canvas, img")){setMsg("qrMsg","Buat QR terlebih dahulu.");return}printQRMarkup(out.innerHTML,"Label QR SARPRAS")}
+async function makeSelectedQR(){
+  const id=$("qrTarget")?.value||"",out=$("qrOutput");
+  if(out)out.innerHTML="";
+  if(!id){setMsg("qrMsg","Pilih barang pada daftar terlebih dahulu.");return}
+  const ok=await loadQRCodeLibrary();
+  if(!ok){setMsg("qrMsg","Generator QR tidak termuat. Periksa koneksi internet lalu coba lagi.");return}
+  const row=items.find(x=>String(x.id)===String(id));
+  if(!row){setMsg("qrMsg","Barang tidak ditemukan. Pilih ulang ruangan dan barang.");populateQRRoomFilter();populateQRTargets();renderQRRoomItems();return}
+  const payload=qrPayload("item",id);
+  try{
+    const holder=document.createElement("div");
+    new QRCode(holder,{text:payload,width:120,height:120,correctLevel:QRCode.CorrectLevel.M});
+    let image="";
+    const canvas=holder.querySelector("canvas");
+    if(canvas) image=canvas.toDataURL("image/png");
+    else {
+      const img=holder.querySelector("img");
+      if(img){
+        if(!img.complete) await new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;});
+        image=img.src||"";
+      }
+    }
+    if(!image){setMsg("qrMsg","QR gagal dibuat. Coba lagi.");return}
+    const category=String(row.category||"Lainnya");
+    const itemName=String(row.name||"Barang tanpa nama");
+    const qty=Math.max(1,Math.floor(Number(row.qty)||1));
+    const labels=[];
+    for(let unit=1;unit<=qty;unit++){
+      const baseCode=String(row.code||"Tanpa kode");
+      const labelCode=qty>1?`${baseCode}-${String(unit).padStart(2,"0")}`:baseCode;
+      labels.push(`<div class="label"><img src="${image}" alt="QR"><b>${esc(labelCode)}</b><span>${esc(itemName)}</span><small>${esc(roomLabel(row.room_id)||"Belum ditentukan")}</small></div>`);
+    }
+    out.innerHTML=`<section class="qr-group"><h3>${esc(category)} — ${esc(itemName)}</h3><div class="labels">${labels.join("")}</div></section>`;
+    window._sarprasCurrentQR={type:"item",id,payload,label:row.code||itemName};
+    setMsg("qrMsg",`${qty} label QR disiapkan dengan format yang sama seperti Cetak semua QR.`,true);
+  }catch(err){console.error(err);setMsg("qrMsg","QR gagal dibuat: "+(err.message||err))}
+}
+function printSelectedQR(){
+  const out=$("qrOutput");
+  if(!out?.querySelector(".label img")){setMsg("qrMsg","Buat QR terlebih dahulu.");return}
+  printQRMarkup(out.innerHTML,"Label QR SARPRAS",false,true);
+}
 async function printAllItemQR(){
   const selectedItems = qrFilteredItems();
   if (!selectedItems.length) {
