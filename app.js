@@ -216,7 +216,7 @@ function decorateReportOutput(){
       .report-school-mark{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:2px solid #173f32;border-radius:50%;font-weight:800;margin-bottom:6px}
       .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:10px 0 12px}
       .report-print-header h2{font-size:16px;margin:0 0 7px}.report-header-date{margin:0 0 8px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:11px}
-      .report-signatures{margin:32px 0 0;break-inside:avoid;page-break-inside:avoid;color:#111}.report-sign-date{text-align:right;margin-bottom:8px}.report-sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px;text-align:center}.report-sign-grid p{margin:4px 0}.report-sign-space{height:62px}.report-sign-name{font-weight:700}
+      .report-signatures{margin:14px 0 0;break-inside:avoid-page!important;page-break-inside:avoid!important;color:#111;display:block}.report-sign-date{text-align:right;margin-bottom:5px}.report-sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;text-align:center;break-inside:avoid-page!important;page-break-inside:avoid!important}.report-sign-grid>div{break-inside:avoid-page!important;page-break-inside:avoid!important}.report-sign-grid p{margin:2px 0}.report-sign-space{height:32px}.report-sign-name{font-weight:700}
       @page{size:A4 portrait;margin:14mm}
       @media print{
         body *{visibility:hidden!important}
@@ -233,7 +233,11 @@ function decorateReportOutput(){
         #view-reports thead{display:table-header-group}
         #view-reports tr{break-inside:avoid;page-break-inside:avoid}
         #view-reports .tablewrap{overflow:visible!important;max-width:none!important}
-        #view-reports .report-signatures{display:block!important}
+        #view-reports .report-signatures{display:block!important;margin-top:10px!important;break-inside:avoid-page!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-grid,#view-reports .report-sign-grid>div{break-inside:avoid-page!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-space{height:30px!important}
+        #view-reports .report-sign-grid p{margin:2px 0!important}
+        #view-reports .report-sign-date{margin-bottom:4px!important}
       }
     `;document.head.appendChild(style);
   }
