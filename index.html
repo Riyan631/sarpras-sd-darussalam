@@ -44,6 +44,156 @@ header .brand .app-school-logo img {
 }
 </style>
 
+
+<style>
+/* Navigasi samping desktop; tampilan seluler tetap nyaman digunakan. */
+@media (min-width: 761px) {
+  #appPanel { position: relative; }
+  #appPanel > nav.tabs.no-print {
+    position: absolute;
+    top: 78px;
+    left: 0;
+    width: 218px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 12px;
+    margin: 0;
+    background: #ffffff;
+    border: 1px solid #dce5df;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(18,60,47,.06);
+  }
+  #appPanel > nav.tabs.no-print .tab {
+    display: block;
+    width: 100%;
+    text-align: left;
+    white-space: normal;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border-radius: 8px;
+  }
+  #appPanel > .view {
+    margin-left: 238px;
+    min-width: 0;
+  }
+}
+@media (max-width: 760px) {
+  #appPanel > nav.tabs.no-print {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding-bottom: 8px;
+  }
+  #appPanel > nav.tabs.no-print .tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+</style>
+
+
+<style>
+/* Menu samping modern SARPRAS */
+@media (min-width: 761px) {
+  #appPanel > nav.tabs.no-print {
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbf8 100%);
+    border: 1px solid #d9e6dd;
+    box-shadow: 0 8px 24px rgba(18, 60, 47, .08);
+    padding: 12px;
+    gap: 7px;
+  }
+  #appPanel > nav.tabs.no-print .tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-height: 44px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #345247;
+    font-weight: 600;
+    transition: background .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  #appPanel > nav.tabs.no-print .tab::before {
+    content: "";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background-color: #e8f2eb;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px 18px;
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="dashboard"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='9' rx='1'/%3E%3Crect x='14' y='3' width='7' height='5' rx='1'/%3E%3Crect x='14' y='12' width='7' height='9' rx='1'/%3E%3Crect x='3' y='16' width='7' height='5' rx='1'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="inventory"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 8-9-5-9 5 9 5 9-5Z'/%3E%3Cpath d='M3 8v8l9 5 9-5V8'/%3E%3Cpath d='M12 13v8'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="rooms"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v16'/%3E%3Cpath d='M9 21v-6h6v6'/%3E%3Cpath d='M7 7h2m6 0h2M7 11h2m6 0h2'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="reports"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h8'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="admins"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='10' cy='7' r='4'/%3E%3Cpath d='M20 8v6m-3-3h6'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="backup"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='8' ry='3'/%3E%3Cpath d='M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5'/%3E%3Cpath d='M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab[data-view="qr"]::before,
+  #appPanel > nav.tabs.no-print .tab[data-view="inspections"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23276345' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7'/%3E%3Crect x='14' y='3' width='7' height='7'/%3E%3Crect x='3' y='14' width='7' height='7'/%3E%3Cpath d='M14 14h3v3h-3zm4 4h3v3h-3zM20 14v1'/%3E%3C/svg%3E");
+  }
+  #appPanel > nav.tabs.no-print .tab:hover {
+    background: #f0f7f2;
+    border-color: #d9e9de;
+    transform: translateX(2px);
+  }
+  #appPanel > nav.tabs.no-print .tab.active {
+    color: #174b31;
+    background: #e7f3ea;
+    border-color: #c9e2d0;
+    box-shadow: inset 3px 0 0 #287348;
+  }
+  #appPanel > nav.tabs.no-print .tab.active::before {
+    background-color: #d1e8d8;
+  }
+}
+@media (max-width: 760px) {
+  #appPanel > nav.tabs.no-print .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 10px;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  #appPanel > nav.tabs.no-print .tab::before {
+    content: "";
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #79a88a;
+  }
+  #appPanel > nav.tabs.no-print .tab.active::before {
+    background: #21643d;
+    box-shadow: 0 0 0 3px #d7ebdd;
+  }
+}
+</style>
+
 </head>
 
 <body>
