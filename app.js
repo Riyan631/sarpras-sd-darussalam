@@ -210,59 +210,56 @@ function decorateReportOutput(){
   reportTableEl.insertAdjacentHTML("afterend", `
     <section id="reportSignatureBlock" class="report-signatures">
       <div class="report-sign-date">Palangkaraya, ${esc(today)}</div>
-      <table class="report-sign-table" role="presentation">
-        <tbody><tr>
-          <td>
-            <p>Mengetahui,</p><p><b>Kepala Sekolah</b></p>
-            <div class="report-sign-space"></div>
-            <p class="report-sign-name">(........................................)</p>
-            <p>NIP. ....................................</p>
-          </td>
-          <td>
-            <p>Petugas Inventaris</p><p><b>Pengelola Sarana dan Prasarana</b></p>
-            <div class="report-sign-space"></div>
-            <p class="report-sign-name">(........................................)</p>
-            <p>NIP. ....................................</p>
-          </td>
-        </tr></tbody>
-      </table>
+      <div class="report-sign-columns">
+        <div class="report-sign-column">
+          <p>Mengetahui,</p><p><b>Kepala Sekolah</b></p>
+          <div class="report-sign-space"></div>
+          <p class="report-sign-name">(........................................)</p>
+          <p>NIP. ....................................</p>
+        </div>
+        <div class="report-sign-column">
+          <p>Petugas Inventaris</p><p><b>Pengelola Sarana dan Prasarana</b></p>
+          <div class="report-sign-space"></div>
+          <p class="report-sign-name">(........................................)</p>
+          <p>NIP. ....................................</p>
+        </div>
+      </div>
     </section>`);
 
   if(!$("reportPrintStyles")){
     const style=document.createElement("style");style.id="reportPrintStyles";style.textContent=`
-      .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 18px;color:#172b24}
-      .report-school-mark{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border:2px solid #173f32;border-radius:50%;font-weight:800;margin-bottom:6px}
-      .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:10px 0 12px}
-      .report-print-header h2{font-size:16px;margin:0 0 7px}.report-header-date{margin:0 0 8px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:11px}
-      .report-signatures{margin:14px 0 0;color:#111;display:block;break-inside:avoid;page-break-inside:avoid;break-before:avoid-page;page-break-before:avoid}
-      .report-sign-date{text-align:right;margin-bottom:5px}
-      .report-sign-table{width:100%;border-collapse:collapse;table-layout:fixed;break-inside:avoid;page-break-inside:avoid}
-      .report-sign-table td{width:50%;text-align:center;vertical-align:top;border:0!important;padding:0 8px!important;background:#fff!important;color:#111!important;break-inside:avoid;page-break-inside:avoid}
-      .report-sign-table p{margin:2px 0}.report-sign-space{height:32px}.report-sign-name{font-weight:700}
-      @page{size:A4 portrait;margin:14mm}
+      .report-print-header{display:flex;flex-direction:column;align-items:center;text-align:center;margin:0 0 12px;color:#172b24}
+      .report-school-mark{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:2px solid #173f32;border-radius:50%;font-weight:800;margin-bottom:5px}
+      .report-school-name{font-size:18px;font-weight:800;letter-spacing:.5px}.report-school-subtitle{font-size:12px;margin-top:3px}.report-header-rule{height:3px;background:#173f32;width:100%;margin:8px 0 10px}
+      .report-print-header h2{font-size:16px;margin:0 0 6px}.report-header-date{margin:0 0 7px}.report-filter-summary{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;font-size:11px}
+      .report-signatures{margin:8px 0 0;color:#111;display:block;break-inside:avoid!important;page-break-inside:avoid!important}
+      .report-sign-date{text-align:right;margin-bottom:4px}
+      .report-sign-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;break-inside:avoid!important;page-break-inside:avoid!important}
+      .report-sign-column{text-align:center;min-width:0;break-inside:avoid!important;page-break-inside:avoid!important}
+      .report-sign-column p{margin:2px 0}.report-sign-space{height:24px}.report-sign-name{font-weight:700}
+      @page{size:A4 portrait;margin:12mm}
       @media print{
+        html,body{margin:0!important;padding:0!important;background:#fff!important}
         body *{visibility:hidden!important}
         #view-reports,#view-reports *{visibility:visible!important}
         #view-reports{display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}
         #view-reports .no-print,#view-reports button,#view-reports input,#view-reports select{display:none!important}
         #view-reports .card{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}
         #view-reports h2{margin-top:0!important}
-        #view-reports .condition-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;margin:8px 0 12px!important}
-        #view-reports .condition-card{padding:6px!important;border:1px solid #999!important;background:#fff!important;break-inside:avoid}
-        #view-reports .condition-card strong{font-size:15px!important}
+        #view-reports .condition-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;margin:6px 0 9px!important}
+        #view-reports .condition-card{padding:5px!important;border:1px solid #999!important;background:#fff!important;break-inside:avoid}
+        #view-reports .condition-card strong{font-size:14px!important}
         #view-reports table{width:100%!important;border-collapse:collapse!important;font-size:8px!important;table-layout:auto!important}
-        #view-reports th,#view-reports td{border:1px solid #666!important;padding:4px!important;color:#111!important;background:#fff!important;overflow-wrap:anywhere!important}
+        #view-reports th,#view-reports td{border:1px solid #666!important;padding:3px!important;color:#111!important;background:#fff!important;overflow-wrap:anywhere!important}
         #view-reports thead{display:table-header-group}
-        #view-reports tr{break-inside:avoid;page-break-inside:avoid}
+        #view-reports tr{break-inside:avoid!important;page-break-inside:avoid!important}
         #view-reports .tablewrap{overflow:visible!important;max-width:none!important}
-        #view-reports #reportSignatureBlock{display:block!important;margin-top:8px!important;break-inside:avoid!important;page-break-inside:avoid!important;break-before:avoid-page!important;page-break-before:avoid!important}
-        #view-reports .report-sign-table{display:table!important;width:100%!important;table-layout:fixed!important;break-inside:avoid!important;page-break-inside:avoid!important}
-        #view-reports .report-sign-table tbody{display:table-row-group!important}
-        #view-reports .report-sign-table tr{display:table-row!important;break-inside:avoid!important;page-break-inside:avoid!important}
-        #view-reports .report-sign-table td{display:table-cell!important;width:50%!important;padding:0 8px!important;break-inside:avoid!important;page-break-inside:avoid!important}
-        #view-reports .report-sign-space{height:28px!important}
-        #view-reports .report-sign-table p{margin:2px 0!important}
-        #view-reports .report-sign-date{margin-bottom:4px!important}
+        #view-reports #reportSignatureBlock{display:block!important;visibility:visible!important;margin-top:7px!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-columns{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-column{display:block!important;width:auto!important;break-inside:avoid!important;page-break-inside:avoid!important}
+        #view-reports .report-sign-space{height:24px!important}
+        #view-reports .report-sign-column p{margin:2px 0!important}
+        #view-reports .report-sign-date{margin-bottom:3px!important}
       }
     `;document.head.appendChild(style);
   }
@@ -394,7 +391,15 @@ $("exportReport").addEventListener("click",()=>{
   const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
 });
-$("printReport").addEventListener("click",()=>{activateView("reports");renderReport();setTimeout(()=>window.print(),50)});
+$("printReport").addEventListener("click",()=>{
+   activateView("reports");
+   renderReport();
+   setTimeout(()=>{
+     const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
+     signatures.slice(0,-1).forEach(el=>el.remove());
+     window.print();
+   },100);
+ });
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
 async function callAdminFunction(body){const {data:{session}}=await sb.auth.getSession();const {data,error}=await sb.functions.invoke("admin-users",{body,headers:{Authorization:"Bearer "+session.access_token}});if(error)throw error;return data}
