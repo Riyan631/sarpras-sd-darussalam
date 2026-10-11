@@ -6,7 +6,6 @@ const STORE = "records";
 const QUEUE = "outbox";
 let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [], editingRoomId = null, dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
-// Penanganan klik menggunakan listener khusus pada tombol/tabel di bawah.
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
 const isConfigured = () => SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("ISI_") && SUPABASE_ANON_KEY.length > 20 && !SUPABASE_ANON_KEY.includes("ISI_");
@@ -171,8 +170,8 @@ const row={id:edit||uuid(),code:$("itemCode").value.trim(),name:$("itemName").va
 await saveLocal("inventory",row);resetItemForm();alert("Data disimpan pada perangkat. Sinkronisasi akan berjalan jika internet tersedia.")});
 $("itemReset").addEventListener("click",resetItemForm);
 $("itemsTable").addEventListener("click",async e=>{const edit=e.target.closest("[data-edit]")?.dataset.edit,del=e.target.closest("[data-del]")?.dataset.del;if(edit){const i=items.find(x=>x.id===edit);if(!i)return;$("itemId").value=i.id;$("itemCode").value=i.code||"";$("itemName").value=i.name;$("itemCategory").value=i.category;$("itemRoom").value=i.room_id||"";$("itemQty").value=i.qty;$("itemYear").value=i.year||"";$("itemGood").value=i.good;$("itemMinor").value=i.minor;$("itemMajor").value=i.major;$("itemRecorder").value=i.recorder||"";$("itemNotes").value=i.notes||"";$("itemFormTitle").textContent="Edit Inventaris";window.scrollTo({top:0,behavior:"smooth"})}if(del&&confirm("Hapus inventaris ini dari database bersama?"))await deleteLocal("inventory",del)});
-$("roomForm").addEventListener("submit",async e=>{e.preventDefault();const row={id:uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:currentUser.id};await saveLocal("rooms",row);$("roomForm").reset();alert("Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
-$("roomsTable").addEventListener("click",async e=>{const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
+$("roomForm").addEventListener("submit",async e=>{e.preventDefault();if(!currentUser){alert("Masuk terlebih dahulu.");return}const old=rooms.find(r=>r.id===editingRoomId);const row={id:editingRoomId||uuid(),name:$("roomName").value.trim(),type:$("roomType").value,pic:$("roomPIC").value.trim(),notes:$("roomNotes").value.trim(),created_by:old?.created_by||currentUser.id};await saveLocal("rooms",row);editingRoomId=null;$("roomForm").reset();const submit=$("roomForm").querySelector('button[type="submit"]');if(submit)submit.textContent="Tambah Ruangan";alert(old?"Perubahan ruangan disimpan. Sinkronisasi otomatis akan berjalan jika online.":"Ruangan disimpan. Sinkronisasi otomatis akan dilakukan saat online.")});
+$("roomsTable").addEventListener("click",async e=>{const editBtn=e.target.closest("[data-roomedit]");if(editBtn){const rid=editBtn.dataset.roomedit;const r=rooms.find(x=>x.id===rid);if(!r){alert("Data ruangan tidak ditemukan di perangkat.");return}editingRoomId=r.id;$("roomName").value=r.name||"";$("roomType").value=r.type||"";$("roomPIC").value=r.pic||"";$("roomNotes").value=r.notes||"";const submit=$("roomForm").querySelector('button[type="submit"]');if(submit)submit.textContent="Simpan Perubahan";$("roomForm").scrollIntoView({behavior:"smooth",block:"start"});return}const rid=e.target.closest("[data-roomdel]")?.dataset.roomdel;if(!rid)return;if(items.some(i=>i.room_id===rid)){alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu.");return}if(confirm("Hapus ruangan dari database bersama?"))await deleteLocal("rooms",rid)});
 $("itemSearch").addEventListener("input",render);
 if($("roomSearch")) $("roomSearch").addEventListener("input",render);
 function reportItems(){
@@ -352,19 +351,14 @@ $("exportReport").addEventListener("click",()=>{
   const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
 });
-if ($("printReport")) $("printReport").addEventListener("click",(e)=>{
-   e.preventDefault();
-   try {
-     activateView("reports");
-     renderReport();
-     setTimeout(()=>{
-       try {
-         const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
-         signatures.slice(0,-1).forEach(el=>el.remove());
-         window.print();
-       } catch (err) { alert("Gagal membuka cetak laporan: " + (err?.message || err)); }
-     },150);
-   } catch (err) { alert("Gagal menyiapkan laporan: " + (err?.message || err)); }
+$("printReport").addEventListener("click",()=>{
+   activateView("reports");
+   renderReport();
+   setTimeout(()=>{
+     const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
+     signatures.slice(0,-1).forEach(el=>el.remove());
+     window.print();
+   },100);
  });
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
