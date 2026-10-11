@@ -6,41 +6,7 @@ const STORE = "records";
 const QUEUE = "outbox";
 let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [], inspections = [], editingRoomId = null, dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
-// Pengaman aksi penting: gunakan delegasi pada document agar tetap bekerja
-// walaupun tabel dirender ulang atau listener tabel sebelumnya tidak terpasang.
-document.addEventListener("click", async e => {
-  const target = e.target instanceof Element ? e.target : e.target?.parentElement;
-  if (!target) return;
-  const printBtn = target.closest("#printReport");
-  if (printBtn) {
-    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-    try {
-      if (typeof activateView === "function") activateView("reports");
-      if (typeof renderReport === "function") renderReport();
-      setTimeout(() => { try { window.print(); } catch (err) { alert("Cetak tidak dapat dibuka: " + (err.message || err)); } }, 250);
-    } catch (err) { alert("Gagal menyiapkan laporan cetak: " + (err.message || err)); }
-    return;
-  }
-  const delItem = target.closest("[data-del]");
-  if (delItem) {
-    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-    const id = delItem.dataset.del;
-    if (!id || !confirm("Hapus inventaris ini dari database bersama?")) return;
-    try { await deleteLocal("inventory", id); alert("Permintaan hapus diproses. Jika offline, perubahan akan disinkronkan saat internet kembali."); }
-    catch (err) { alert("Gagal menghapus inventaris: " + (err.message || err)); }
-    return;
-  }
-  const delRoom = target.closest("[data-roomdel]");
-  if (delRoom) {
-    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-    const id = delRoom.dataset.roomdel;
-    if (!id) return;
-    if (items.some(i => i.room_id === id)) { alert("Ruangan masih dipakai oleh barang. Ubah lokasi barang terlebih dahulu."); return; }
-    if (!confirm("Hapus ruangan dari database bersama?")) return;
-    try { await deleteLocal("rooms", id); alert("Permintaan hapus ruangan diproses."); }
-    catch (err) { alert("Gagal menghapus ruangan: " + (err.message || err)); }
-  }
-}, true);
+// Penanganan klik menggunakan listener khusus pada tombol/tabel di bawah.
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
 const isConfigured = () => SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("ISI_") && SUPABASE_ANON_KEY.length > 20 && !SUPABASE_ANON_KEY.includes("ISI_");
@@ -386,14 +352,19 @@ $("exportReport").addEventListener("click",()=>{
   const csv=["LAPORAN INVENTARIS SARANA DAN PRASARANA SD DARUSSALAM",...rows.map(r=>r.map(csvCell).join(";"))].join("\r\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="laporan_inventaris_sarpras_sd_darussalam.csv";a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
 });
-$("printReport").addEventListener("click",()=>{
-   activateView("reports");
-   renderReport();
-   setTimeout(()=>{
-     const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
-     signatures.slice(0,-1).forEach(el=>el.remove());
-     window.print();
-   },100);
+if ($("printReport")) $("printReport").addEventListener("click",(e)=>{
+   e.preventDefault();
+   try {
+     activateView("reports");
+     renderReport();
+     setTimeout(()=>{
+       try {
+         const signatures=[...document.querySelectorAll("#reportSignatureBlock")];
+         signatures.slice(0,-1).forEach(el=>el.remove());
+         window.print();
+       } catch (err) { alert("Gagal membuka cetak laporan: " + (err?.message || err)); }
+     },150);
+   } catch (err) { alert("Gagal menyiapkan laporan: " + (err?.message || err)); }
  });
 $("backupDownload").addEventListener("click",async()=>{const payload={app:"SARPRAS SD Darussalam",version:2,exported_at:new Date().toISOString(),records:await dbAll(STORE),outbox:await dbAll(QUEUE)};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="cadangan_sarpras_darussalam.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
 $("restoreBackup").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(!Array.isArray(p.records))throw Error("Format tidak sesuai");if(!confirm("Pulihkan data lokal dari file ini?"))return;await dbClear(STORE);await dbClear(QUEUE);for(const r of p.records)await dbPut(STORE,r);for(const q of (p.outbox||[]))await dbPut(QUEUE,q);await localLoad();if(navigator.onLine)await syncQueue();alert("Cadangan dipulihkan ke perangkat ini.")}catch(err){alert("File cadangan tidak valid.")}e.target.value=""});
