@@ -5,6 +5,7 @@ const DB_NAME = "sarpras-darussalam-local-v2";
 const STORE = "records";
 const QUEUE = "outbox";
 let sb = null, currentUser = null, currentRole = "petugas", items = [], rooms = [], profiles = [], mutations = [];
+let dashboardSelectedRoomId = "";
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uuid = () => crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16)});
@@ -46,18 +47,21 @@ function renderDashboardDetails(){
   const roomGroups=[...rooms.map(r=>({id:r.id,name:r.name,items:items.filter(i=>i.room_id===r.id)}))];
   const unassigned=items.filter(i=>!i.room_id);
   if(unassigned.length)roomGroups.push({id:"__unassigned__",name:"Belum ditentukan ruangannya",items:unassigned});
-  const roomChart=roomGroups.length?roomGroups.map(room=>{
+  if(!roomGroups.some(r=>r.id===dashboardSelectedRoomId)) dashboardSelectedRoomId=roomGroups[0]?.id||"";
+  const selectedRoom=roomGroups.find(r=>r.id===dashboardSelectedRoomId);
+  const roomChart=selectedRoom?(()=>{const room=selectedRoom;
     const sumRoom=key=>room.items.reduce((n,i)=>n+(Number(i[key])||0),0);
     const rt=sumRoom("qty"),rg=sumRoom("good"),rm=sumRoom("minor"),rj=sumRoom("major");
     return `<div class="dash-room"><h4>${esc(room.name)}</h4><p class="dash-room-total">${room.items.length} jenis barang · ${rt} unit</p>${[["Baik",rg,"dash-good"],["Rusak ringan",rm,"dash-minor"],["Rusak berat",rj,"dash-major"]].map(([label,n,cls])=>`<div class="dash-line"><span>${label}</span><div class="dash-track"><div class="dash-fill ${cls}" style="width:${pct(n,rt)}%"></div></div><b>${n} (${pct(n,rt)}%)</b></div>`).join("")}<p class="dash-note">Persentase dihitung dari ${rt} unit di ruangan ini.</p></div>`;
-  }).join(""):'<p class="dash-note">Belum ada ruangan terdata. Tambahkan ruangan dan tentukan lokasi barang pada menu Inventaris.</p>';
+  })():'<p class="dash-note">Belum ada ruangan terdata. Tambahkan ruangan dan tentukan lokasi barang pada menu Inventaris.</p>';
   panel.innerHTML=`
     <style>
       #dashboardDetails{margin-top:16px;color:var(--text,#1f2937)}
       #dashboardDetails .dash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
       #dashboardDetails .dash-card{background:var(--card,#fff);border:1px solid var(--border,#dbe2e8);border-radius:12px;padding:16px;min-width:0}
       #dashboardDetails h3{font-size:16px;margin:0 0 13px}
-      #dashboardDetails .dash-room-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      #dashboardDetails .dash-room-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+      #dashboardDetails .dash-room-filter{display:block;width:100%;max-width:360px;margin:0 0 12px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#1f2937;font:inherit}
       #dashboardDetails .dash-room{background:#f5f9ff;border:1px solid #cbdcf5;border-radius:10px;padding:12px;min-width:0}
       #dashboardDetails .dash-room:nth-child(3n+2){background:#f1fbf5;border-color:#c4e8d1}
       #dashboardDetails .dash-room:nth-child(3n){background:#fff8ed;border-color:#f3d8ad}
@@ -76,8 +80,10 @@ function renderDashboardDetails(){
     </style>
     <div class="dash-grid">
       <div class="dash-card"><h3>Grafik Kondisi Barang per Ruangan</h3>
+        <label for="dashboardRoomFilter" class="dash-note" style="display:block;margin:0 0 6px">Pilih ruangan</label>
+        <select id="dashboardRoomFilter" class="dash-room-filter">${roomGroups.map(r=>`<option value="${esc(r.id)}" ${r.id===dashboardSelectedRoomId?"selected":""}>${esc(r.name)}</option>`).join("")}</select>
         <div class="dash-room-grid">${roomChart}</div>
-        <p class="dash-note">Setiap grafik dihitung dari jumlah unit pada ruangan masing-masing, bukan dari total seluruh sekolah.</p>
+        <p class="dash-note">Grafik menampilkan satu ruangan pilihan. Pilih ruangan lain pada daftar di atas untuk melihat kondisinya.</p>
       </div>
       <div class="dash-card"><h3>Jenis Barang per Kategori</h3>
         ${catRows.length?catRows.map(([name,n])=>`<div class="dash-category"><span>${esc(name)}</span><b>${n} unit</b></div>`).join(""):'<p class="dash-note">Belum ada data inventaris.</p>'}
@@ -94,6 +100,8 @@ function renderDashboardDetails(){
         <p class="dash-note">Gunakan angka ini untuk membantu memeriksa data yang masih perlu dilengkapi.</p>
       </div>
     </div>`;
+  const roomFilter=$("dashboardRoomFilter");
+  if(roomFilter) roomFilter.addEventListener("change",()=>{dashboardSelectedRoomId=roomFilter.value;renderDashboardDetails()});
 }
 async function localLoad(){const all=await dbAll(STORE);items=all.filter(x=>x.table==="inventory").map(x=>x.data);rooms=all.filter(x=>x.table==="rooms").map(x=>x.data);mutations=all.filter(x=>x.table==="mutations").map(x=>x.data).sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));render()}
 async function cacheRecord(tableName,data){await dbPut(STORE,{key:tableName+":"+data.id,table:tableName,data});}
