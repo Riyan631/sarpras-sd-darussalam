@@ -233,6 +233,14 @@ header .brand .app-school-logo img {
     <button class="btn" type="submit">Masuk</button>
     <p id="loginMsg" class="msg"></p>
   </form>
+  <form id="passwordRecoveryForm" class="hidden" style="margin-top:14px">
+    <h2>Buat Kata Sandi Baru</h2>
+    <p class="muted">Masukkan kata sandi baru untuk akun Anda.</p>
+    <label>Kata sandi baru *<input id="recoveryPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label>
+    <label>Ulangi kata sandi baru *<input id="recoveryPasswordConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></label>
+    <button class="btn" type="submit">Simpan Kata Sandi Baru</button>
+    <p id="recoveryMsg" class="msg" role="status"></p>
+  </form>
 </section>
 
 <section id="appPanel" class="hidden">
@@ -392,7 +400,8 @@ header .brand .app-school-logo img {
       <p class="muted">Hanya admin utama yang dapat membuat akun atau mengubah peran. Akun dibuat melalui fungsi server yang aman.</p>
       <form id="createUserForm">
         <div class="formgrid">
-          <label>Email petugas *<input id="newUserEmail" type="email" required></label>
+          <label>Nama lengkap *<input id="newUserName" type="text" maxlength="120" required autocomplete="name"></label>
+          <label>Email petugas *<input id="newUserEmail" type="email" required autocomplete="email"></label>
           <label>Kata sandi sementara *
             <input id="newUserPassword" type="password" minlength="8" required>
             <span class="tiny muted">Minimal 8 karakter. Sampaikan secara aman dan minta petugas menggantinya.</span>
@@ -408,7 +417,7 @@ header .brand .app-school-logo img {
     <div class="panel">
       <h2>Akun Terdaftar</h2>
       <div id="adminsTable" class="tablewrap"></div>
-      <p class="tiny muted">Untuk keamanan, fungsi ini tidak menyediakan penghapusan akun secara langsung. Nonaktifkan pengguna dari Supabase Dashboard bila diperlukan.</p>
+      <p class="tiny muted">Hapus hanya tersedia untuk akun berperan Petugas. Reset kata sandi Admin mengirim tautan pemulihan ke email terdaftar. Data inventaris dan riwayat mutasi tidak ikut dihapus.</p>
     </div>
   </section>
 
