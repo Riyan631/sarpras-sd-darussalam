@@ -250,3 +250,9 @@ table th, table td { text-align:center; vertical-align:middle; }
 @media (prefers-reduced-motion: reduce) {
   #appPanel > nav.tabs.no-print, #appPanel > .mobile-menu-overlay { transition:none !important; }
 }
+
+
+/* PEMULIHAN TABEL: angka dan isi tabel rata tengah di seluruh menu */
+.tablewrap table, table { text-align: center !important; }
+.tablewrap th, .tablewrap td, table th, table td { text-align: center !important; vertical-align: middle !important; }
+.tablewrap td *, table td * { vertical-align: middle; }
