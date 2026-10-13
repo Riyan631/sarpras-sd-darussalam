@@ -91,7 +91,7 @@ function setMsg(id,msg,good=false){const el=$(id);if(el){el.textContent=msg;el.c
 function onlineStatus(){$("netStatus").textContent=navigator.onLine?"Online":"Offline";$("netDot").style.color=navigator.onLine?"#8ef0a5":"#ff9b9b";$("syncStatus").textContent="";$("syncExplanation").textContent=navigator.onLine?"Koneksi tersedia. Perubahan lokal akan dikirim ke database bersama.":"Offline. Perubahan disimpan di perangkat ini dan menunggu koneksi."}
 function showApp(){ $("loginPanel").classList.add("hidden");$("appPanel").classList.remove("hidden");$("userLabel").textContent=currentUser?.email||"Pengguna";$("roleLabel").textContent=currentRole==="admin_utama"?"Admin utama":(currentRole==="admin"?"Admin":"Petugas");document.querySelectorAll(".admin-only").forEach(e=>e.classList.toggle("hidden",currentRole!=="admin_utama")); }
 function showLogin(){ $("appPanel").classList.add("hidden");$("loginPanel").classList.remove("hidden"); }
-function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins")loadProfiles();if(name==="mutations")renderMutations();if(name==="qr")renderQRHome();}
+function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+name));if(name==="admins"){loadProfiles();loadRegistrationRequests();}if(name==="mutations")renderMutations();if(name==="qr")renderQRHome();}
 function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(v=>`<td>${v??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${head.length}" class="muted">Belum ada data.</td></tr>`}</tbody></table>`}
 function roomLabel(id){return rooms.find(r=>r.id===id)?.name||""}
 function cond(i){return `<span class="pill">${i.good||0} baik</span> <span class="pill">${i.minor||0} ringan</span> <span class="pill">${i.major||0} berat</span>`}
@@ -258,15 +258,24 @@ async function establishSession(){
  showApp();await localLoad();
  if(navigator.onLine){
    const {data:profile,error}=await sb.from("profiles").select("role,display_name").eq("id",currentUser.id).single();
+   if(!error&&profile&&profile.role==="pending"){
+     currentUser=null;currentRole="petugas";await sb.auth.signOut();showLogin();setMsg("loginMsg","Pendaftaran Anda masih menunggu persetujuan Admin Utama.");return;
+   }
+   if(currentUser.user_metadata?.sarpras_registration_status==="pending"){
+     currentUser=null;currentRole="petugas";await sb.auth.signOut();showLogin();setMsg("loginMsg","Pendaftaran Anda masih menunggu persetujuan Admin Utama.");return;
+   }
    if(!error&&profile){currentRole=profile.role||"petugas";localStorage.setItem("sarpras-role-"+currentUser.id,currentRole);$("userLabel").textContent=profile.display_name||currentUser.email;$("roleLabel").textContent=currentRole==="admin_utama"?"Admin utama":(currentRole==="admin"?"Admin":"Petugas")}
    else currentRole="petugas";
    showApp();await fetchRemote();await syncQueue();
  }else{
+   if(currentUser.user_metadata?.sarpras_registration_status==="pending"){
+     currentUser=null;currentRole="petugas";showLogin();setMsg("loginMsg","Pendaftaran Anda masih menunggu persetujuan Admin Utama. Hubungkan internet untuk memeriksa status.");return;
+   }
    const saved=localStorage.getItem("sarpras-role-"+currentUser.id);if(saved)currentRole=saved;
    showApp();
  }
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();if(!sb){setMsg("loginMsg","Konfigurasi aplikasi belum siap.");return}setMsg("loginMsg","Memeriksa akun…");const {data,error}=await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){setMsg("loginMsg","Gagal masuk: "+error.message);return}currentUser=data.user;await establishSession();setMsg("loginMsg","Berhasil masuk.",true)});
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();if(!sb){setMsg("loginMsg","Konfigurasi aplikasi belum siap.");return}setMsg("loginMsg","Memeriksa akun…");const {data,error}=await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){setMsg("loginMsg","Gagal masuk: "+error.message);return}currentUser=data.user;await establishSession();if(currentUser)setMsg("loginMsg","Berhasil masuk.",true)});
 $("logout").addEventListener("click",async()=>{if(sb&&navigator.onLine)await sb.auth.signOut();currentUser=null;currentRole="petugas";showLogin()});
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>activateView(b.dataset.view)));
 $("syncNow").addEventListener("click",async()=>{if(!navigator.onLine){alert("Perangkat masih offline. Data akan disinkronkan otomatis saat internet kembali.");return}await syncQueue();await fetchRemote();alert("Proses sinkronisasi selesai. Periksa indikator antrean.")});
@@ -867,6 +876,63 @@ function stopQRScan(){qrScanActive=false;if(qrScanStream){qrScanStream.getTracks
 
 initMutationUI();
 initQRUI();
+
+
+// Fitur tambahan: pendaftaran mandiri Petugas dengan persetujuan Admin Utama.
+// Tidak mengubah alur inventaris, laporan, tabel, menu, atau sinkronisasi yang sudah ada.
+function ensureRegistrationUI(){
+  const loginForm=$("loginForm");
+  if(loginForm&&!$("registrationToggle")){
+    const wrap=document.createElement("div");wrap.id="petugasRegistrationWrap";wrap.style.cssText="margin-top:18px;padding-top:14px;border-top:1px solid #d8e0e6";
+    wrap.innerHTML='<button id="registrationToggle" type="button" class="btn light" style="width:100%">Daftar sebagai Petugas</button><form id="petugasRegistrationForm" class="hidden" style="margin-top:14px"><label>Nama lengkap *<input id="registrationName" maxlength="120" required autocomplete="name"></label><label>Email *<input id="registrationEmail" type="email" maxlength="254" required autocomplete="email"></label><label>Kata sandi *<input id="registrationPassword" type="password" minlength="8" maxlength="72" required autocomplete="new-password"></label><label>Ulangi kata sandi *<input id="registrationPasswordConfirm" type="password" minlength="8" maxlength="72" required autocomplete="new-password"></label><p class="tiny muted">Buat kata sandi sendiri (minimal 8 karakter). Akun baru dapat digunakan setelah disetujui Admin Utama.</p><button class="btn" type="submit">Kirim Pendaftaran</button><p id="registrationMsg" class="msg" role="status"></p></form>';
+    loginForm.parentElement.appendChild(wrap);
+    $("registrationToggle").addEventListener("click",()=>{$("petugasRegistrationForm").classList.toggle("hidden");});
+    $("petugasRegistrationForm").addEventListener("submit",async e=>{
+      e.preventDefault();if(!sb){setMsg("registrationMsg","Aplikasi belum siap. Muat ulang halaman.");return}
+      const password=$("registrationPassword").value;
+      if(password!==$("registrationPasswordConfirm").value){setMsg("registrationMsg","Kata sandi dan ulangi kata sandi tidak sama.");return}
+      if(password.length<8){setMsg("registrationMsg","Kata sandi minimal 8 karakter.");return}
+      const btn=e.submitter||e.target.querySelector('button[type="submit"]');if(btn)btn.disabled=true;
+      setMsg("registrationMsg","Mengirim pendaftaran…");
+      try{
+        const {data,error}=await sb.functions.invoke("petugas-registration",{body:{action:"submit",name:$("registrationName").value.trim(),email:$("registrationEmail").value.trim().toLowerCase(),password}});
+        if(error)throw error;
+        setMsg("registrationMsg",data?.message||"Pendaftaran terkirim. Tunggu persetujuan Admin Utama.",true);e.target.reset();
+      }catch(err){setMsg("registrationMsg","Pendaftaran gagal: "+(err.message||err)+". Pastikan fungsi petugas-registration sudah dipasang.")}
+      finally{if(btn)btn.disabled=false}
+    });
+  }
+  const adminView=$("view-admins");
+  if(adminView&&!$("registrationRequestsPanel")){
+    const panel=document.createElement("div");panel.className="panel";panel.id="registrationRequestsPanel";panel.innerHTML='<h2>Pendaftaran Petugas</h2><p class="muted">Terima atau tolak pendaftaran. Petugas membuat kata sandinya sendiri saat mendaftar.</p><div id="registrationRequestsTable" class="tablewrap">Buka menu Kelola Akun untuk memuat pendaftaran.</div><p id="registrationAdminMsg" class="msg" role="status"></p>';
+    adminView.appendChild(panel);
+    panel.addEventListener("click",async e=>{
+      const btn=e.target.closest("[data-registration-action]");if(!btn)return;
+      if(currentRole!=="admin_utama"){setMsg("registrationAdminMsg","Hanya Admin Utama yang dapat memproses pendaftaran.");return}
+      const id=btn.dataset.registrationId,action=btn.dataset.registrationAction;
+      if(!id||!['approve','reject'].includes(action))return;
+      if(action==="reject"&&!confirm("Tolak pendaftaran Petugas ini?"))return;
+      btn.disabled=true;setMsg("registrationAdminMsg",action==="approve"?"Menyetujui pendaftaran…":"Menolak pendaftaran…");
+      try{
+        const {data,error}=await sb.functions.invoke("petugas-registration",{body:{action,request_id:id}});if(error)throw error;
+        setMsg("registrationAdminMsg",data?.message||(action==="approve"?"Pendaftaran disetujui.":"Pendaftaran ditolak."),true);await loadRegistrationRequests();
+      }catch(err){setMsg("registrationAdminMsg","Gagal memproses pendaftaran: "+(err.message||err))}
+      finally{btn.disabled=false}
+    });
+  }
+}
+async function loadRegistrationRequests(){
+  if(currentRole!=="admin_utama"||!sb||!$("registrationRequestsTable"))return;
+  const area=$("registrationRequestsTable");area.textContent="Memuat pendaftaran…";
+  try{
+    const {data,error}=await sb.functions.invoke("petugas-registration",{body:{action:"list"}});if(error)throw error;
+    const rows=data?.requests||[];
+    area.innerHTML=table(["Tanggal","Nama","Email","Status","Tindakan"],rows.map(r=>[
+      esc(r.created_at?new Date(r.created_at).toLocaleString("id-ID"):"-"),esc(r.name),esc(r.email),esc(r.status),r.status==="pending"?`<button type="button" class="btn" data-registration-action="approve" data-registration-id="${esc(r.id)}">Terima</button> <button type="button" class="btn secondary" data-registration-action="reject" data-registration-id="${esc(r.id)}">Tolak</button>`:esc(r.status==="accepted"?"Disetujui":"Ditolak")
+    ]));
+  }catch(err){area.textContent="Gagal memuat pendaftaran: "+(err.message||err)+". Pastikan SQL dan fungsi petugas-registration sudah dipasang."}
+}
+ensureRegistrationUI();
 
 window.addEventListener("online",async()=>{onlineStatus();if(sb&&currentUser){await syncQueue();await fetchRemote()}});
 window.addEventListener("offline",onlineStatus);
