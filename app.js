@@ -349,8 +349,33 @@ function decorateReportOutput(){
       .report-signatures{margin:8px 0 0;color:#111;display:block;break-inside:avoid!important;page-break-inside:avoid!important}.report-sign-date{text-align:right;margin-bottom:4px}
       .report-sign-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;break-inside:avoid!important;page-break-inside:avoid!important}.report-sign-column{text-align:center;min-width:0;break-inside:avoid!important;page-break-inside:avoid!important}
       .report-sign-column p{margin:2px 0}.report-sign-space{height:24px}.report-sign-name{font-weight:700}
-      @page{size:A4 portrait;margin:12mm}
-      @media print{html,body{margin:0!important;padding:0!important;background:#fff!important}body *{visibility:hidden!important}#view-reports,#view-reports *{visibility:visible!important}#view-reports{display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}#view-reports .no-print,#view-reports button,#view-reports input,#view-reports select{display:none!important}#view-reports .card{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important}#view-reports h2{margin-top:0!important}}
+      @page{size:A4 landscape;margin:8mm}
+      @media print{
+        html,body{margin:0!important;padding:0!important;background:#fff!important;font-size:9pt!important}
+        body *{visibility:hidden!important}
+        #view-reports,#view-reports *{visibility:visible!important}
+        #view-reports{display:block!important;position:absolute!important;left:0!important;top:0!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important;color:#111!important}
+        #view-reports > .panel > h2,#view-reports > h2{display:none!important}
+        #view-reports .no-print,#view-reports button,#view-reports input,#view-reports select{display:none!important}
+        #view-reports .card,#view-reports .panel{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;max-width:none!important;width:100%!important}
+        .report-print-header{margin:0 0 7px!important}
+        .report-school-logo{width:54px!important;height:54px!important;margin-bottom:3px!important}
+        .report-school-name{font-size:15pt!important}.report-school-subtitle{font-size:9pt!important}
+        .report-header-rule{margin:5px 0 6px!important;height:2px!important}
+        .report-print-header h2{display:block!important;font-size:12pt!important;margin:0 0 4px!important}
+        .report-header-date{margin:0 0 4px!important;font-size:8pt!important}
+        .report-filter-summary{gap:8px!important;font-size:8pt!important}
+        #view-reports table{width:100%!important;max-width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;font-size:7.5pt!important;margin:4px 0!important}
+        #view-reports th,#view-reports td{padding:3px 4px!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;vertical-align:middle!important}
+        #view-reports tr{break-inside:avoid!important;page-break-inside:avoid!important}
+        .condition-summary{gap:5px!important;margin:7px 0!important;grid-template-columns:repeat(6,minmax(0,1fr))!important}
+        .condition-card{padding:5px!important;border-radius:4px!important}
+        .condition-card span{font-size:7pt!important;margin-bottom:2px!important}.condition-card strong{font-size:12pt!important}.condition-card small{font-size:7pt!important}
+        .condition-heading{margin:9px 0 4px!important;font-size:10pt!important}
+        .report-signatures{margin-top:5px!important;font-size:8pt!important}
+        .report-sign-space{height:14px!important}
+        .report-sign-columns{gap:8px!important}
+      }
     `;document.head.appendChild(style);
   }
 }
