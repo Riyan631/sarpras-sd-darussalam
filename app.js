@@ -365,13 +365,39 @@ function decorateReportOutput(){
         .report-print-header h2{display:block!important;font-size:12pt!important;margin:0 0 4px!important}
         .report-header-date{margin:0 0 4px!important;font-size:8pt!important}
         .report-filter-summary{gap:8px!important;font-size:8pt!important}
-        #view-reports table{width:100%!important;max-width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;font-size:7.5pt!important;margin:4px 0!important}
-        #view-reports th,#view-reports td{padding:3px 4px!important;line-height:1.15!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;vertical-align:middle!important}
+        #view-reports table{width:100%!important;max-width:100%!important;table-layout:fixed!important;border-collapse:separate!important;border-spacing:0!important;font-size:7.5pt!important;margin:7px 0 11px!important;border:1px solid #aab9b1!important;border-radius:5px!important;overflow:hidden!important}
+        #view-reports #reportDamagedTable{margin-top:7px!important;margin-bottom:15px!important}
+        #view-reports #reportTable{margin-top:14px!important;margin-bottom:9px!important}
+        #view-reports th{background:#e7efe9!important;color:#183d30!important;font-weight:700!important;border-bottom:1.5px solid #789487!important}
+        #view-reports td{background:#fff!important}
+        #view-reports th,#view-reports td{padding:5px 5px!important;line-height:1.2!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;vertical-align:middle!important;border-right:1px solid #c4cec8!important;border-bottom:1px solid #c4cec8!important}
+        #view-reports th:last-child,#view-reports td:last-child{border-right:0!important}
+        #view-reports tr:last-child td{border-bottom:0!important}
+        #view-reports tr:nth-child(even) td{background:#f7faf8!important}
+        #view-reports #reportDamagedTable th:nth-child(1),#view-reports #reportDamagedTable td:nth-child(1){width:10%!important}
+        #view-reports #reportDamagedTable th:nth-child(2),#view-reports #reportDamagedTable td:nth-child(2){width:21%!important}
+        #view-reports #reportDamagedTable th:nth-child(3),#view-reports #reportDamagedTable td:nth-child(3){width:13%!important}
+        #view-reports #reportDamagedTable th:nth-child(4),#view-reports #reportDamagedTable td:nth-child(4){width:8%!important}
+        #view-reports #reportDamagedTable th:nth-child(5),#view-reports #reportDamagedTable td:nth-child(5){width:8%!important}
+        #view-reports #reportDamagedTable th:nth-child(6),#view-reports #reportDamagedTable td:nth-child(6){width:13%!important}
+        #view-reports #reportDamagedTable th:nth-child(7),#view-reports #reportDamagedTable td:nth-child(7){width:13%!important}
+        #view-reports #reportDamagedTable th:nth-child(8),#view-reports #reportDamagedTable td:nth-child(8){width:14%!important}
+        #view-reports #reportTable th:nth-child(1),#view-reports #reportTable td:nth-child(1){width:4%!important}
+        #view-reports #reportTable th:nth-child(2),#view-reports #reportTable td:nth-child(2){width:8%!important}
+        #view-reports #reportTable th:nth-child(3),#view-reports #reportTable td:nth-child(3){width:17%!important}
+        #view-reports #reportTable th:nth-child(4),#view-reports #reportTable td:nth-child(4){width:12%!important}
+        #view-reports #reportTable th:nth-child(5),#view-reports #reportTable td:nth-child(5){width:11%!important}
+        #view-reports #reportTable th:nth-child(6),#view-reports #reportTable td:nth-child(6){width:7%!important}
+        #view-reports #reportTable th:nth-child(7),#view-reports #reportTable td:nth-child(7){width:7%!important}
+        #view-reports #reportTable th:nth-child(8),#view-reports #reportTable td:nth-child(8){width:6%!important}
+        #view-reports #reportTable th:nth-child(9),#view-reports #reportTable td:nth-child(9){width:9%!important}
+        #view-reports #reportTable th:nth-child(10),#view-reports #reportTable td:nth-child(10){width:9%!important}
+        #view-reports #reportTable th:nth-child(11),#view-reports #reportTable td:nth-child(11){width:10%!important}
         #view-reports tr{break-inside:avoid!important;page-break-inside:avoid!important}
-        .condition-summary{gap:5px!important;margin:7px 0!important;grid-template-columns:repeat(6,minmax(0,1fr))!important}
+        .condition-summary{gap:5px!important;margin:7px 0 13px!important;grid-template-columns:repeat(6,minmax(0,1fr))!important}
         .condition-card{padding:5px!important;border-radius:4px!important}
         .condition-card span{font-size:7pt!important;margin-bottom:2px!important}.condition-card strong{font-size:12pt!important}.condition-card small{font-size:7pt!important}
-        .condition-heading{margin:9px 0 4px!important;font-size:10pt!important}
+        .condition-heading{margin:12px 0 6px!important;font-size:10pt!important}
         .report-signatures{margin-top:5px!important;font-size:8pt!important}
         .report-sign-space{height:14px!important}
         .report-sign-columns{gap:8px!important}
