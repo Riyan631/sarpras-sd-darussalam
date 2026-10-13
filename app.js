@@ -95,7 +95,44 @@ function activateView(name){document.querySelectorAll(".tab").forEach(b=>b.class
 function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(v=>`<td>${v??""}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${head.length}" class="muted">Belum ada data.</td></tr>`}</tbody></table>`}
 function roomLabel(id){return rooms.find(r=>r.id===id)?.name||""}
 function cond(i){return `<span class="pill">${i.good||0} baik</span> <span class="pill">${i.minor||0} ringan</span> <span class="pill">${i.major||0} berat</span>`}
+const CUSTOM_CATEGORY_KEY = "sarpras-kategori-tambahan-v1";
+function readCustomCategories(){
+ try { const value=JSON.parse(localStorage.getItem(CUSTOM_CATEGORY_KEY)||"[]"); return Array.isArray(value)?value.filter(x=>typeof x==="string"&&x.trim()):[]; }
+ catch(_){ return []; }
+}
+function updateCategoryOptions(preferredValue){
+ const select=$("itemCategory");
+ if(!select)return;
+ const previous=preferredValue!==undefined?preferredValue:select.value;
+ const initial=[...select.options].filter(o=>o.value!=="__add_category__");
+ const known=new Map();
+ for(const opt of initial){ if(opt.value)known.set(opt.value,opt.textContent); }
+ for(const item of items){const category=String(item.category||"").trim();if(category&&!known.has(category))known.set(category,category);}
+ for(const category of readCustomCategories()){if(!known.has(category))known.set(category,category);}
+ select.innerHTML="";
+ const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Pilih";select.appendChild(placeholder);
+ for(const [value,label] of known){const opt=document.createElement("option");opt.value=value;opt.textContent=label;select.appendChild(opt);}
+ const add=document.createElement("option");add.value="__add_category__";add.textContent="+ Tambah kategori baru...";select.appendChild(add);
+ select.value=[...select.options].some(o=>o.value===previous)?previous:"";
+}
+$("itemCategory").addEventListener("change",()=>{
+ const select=$("itemCategory");
+ if(select.value!=="__add_category__")return;
+ const previous=select.dataset.previousValue||"";
+ const name=prompt("Masukkan nama kategori baru:");
+ if(name===null){select.value=previous;return;}
+ const category=name.trim();
+ if(!category){alert("Nama kategori tidak boleh kosong.");updateCategoryOptions(previous);return;}
+ const exists=[...select.options].some(o=>o.value.toLocaleLowerCase()===category.toLocaleLowerCase()&&o.value!=="__add_category__");
+ if(exists){alert("Kategori tersebut sudah tersedia.");updateCategoryOptions(category);return;}
+ const categories=readCustomCategories();categories.push(category);
+ try{localStorage.setItem(CUSTOM_CATEGORY_KEY,JSON.stringify(categories));}
+ catch(err){alert("Kategori tidak dapat disimpan di perangkat ini: "+(err.message||err));updateCategoryOptions(previous);return;}
+ updateCategoryOptions(category);
+});
+$("itemCategory").addEventListener("focus",()=>{$("itemCategory").dataset.previousValue=$("itemCategory").value;});
 function render(){
+updateCategoryOptions($("itemCategory").value);
 $("countKinds").textContent=items.length;$("countUnits").textContent=items.reduce((s,x)=>s+(+x.qty||0),0);$("countRooms").textContent=rooms.length;$("countDamaged").textContent=items.reduce((s,x)=>s+(+x.minor||0)+(+x.major||0),0);
 $("itemRoom").innerHTML='<option value="">Belum ditentukan</option>'+rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
 const q=($("itemSearch").value||"").toLowerCase(), visible=items.filter(i=>[i.code,i.name,i.category,roomLabel(i.room_id)].join(" ").toLowerCase().includes(q));
@@ -203,31 +240,10 @@ async function syncQueue(){
 }
 async function fetchRemote(){
  if(!sb||!navigator.onLine||!currentUser)return;
- // Ambil antrean sekali, lalu muat tabel secara paralel agar startup lebih cepat.
- const pending=await dbAll(QUEUE);
- const pendingByTable=new Map();
- for(const op of pending){
-   if(!pendingByTable.has(op.table))pendingByTable.set(op.table,new Set());
-   pendingByTable.get(op.table).add(String(op.row_id));
+ for(const t of ["rooms","inventory","mutations"]){
+   const {data,error}=await sb.from(t).select("*");if(error){console.warn(error.message);continue}
+   const pending=await dbAll(QUEUE);const pendingIds=new Set(pending.filter(op=>op.table===t).map(op=>op.row_id));for(const row of (data||[])){if(pendingIds.has(row.id))continue;row.sync_state="tersinkron";await cacheRecord(t,row)}
  }
- const tables=["rooms","inventory","mutations"];
- const results=await Promise.all(tables.map(async t=>{
-   try{
-     const {data,error}=await sb.from(t).select("*");
-     if(error){console.warn("Gagal memuat "+t+":",error.message);return [];}
-     return (data||[]).map(row=>({table:t,row}));
-   }catch(err){console.warn("Gagal memuat "+t+":",err.message);return [];}
- }));
- const writes=[];
- for(const group of results){
-   for(const entry of group){
-     const t=entry.table,row=entry.row;
-     if(pendingByTable.get(t)?.has(String(row.id)))continue;
-     row.sync_state="tersinkron";
-     writes.push(cacheRecord(t,row));
-   }
- }
- await Promise.all(writes);
  await localLoad();
 }
 async function initAuth(){
