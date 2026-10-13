@@ -237,6 +237,7 @@ header .brand .app-school-logo img {
 
 <section id="appPanel" class="hidden">
   <div class="toolbar">
+    <button id="mobileMenuToggle" class="mobile-menu-toggle no-print" type="button" aria-controls="sarprasMobileNav" aria-expanded="false" aria-label="Buka menu navigasi">☰ <span>Menu</span></button>
     <div>
       <b id="userLabel">Pengguna</b>
       <span id="roleLabel" class="pill"></span>
@@ -391,7 +392,6 @@ header .brand .app-school-logo img {
       <p class="muted">Hanya admin utama yang dapat membuat akun atau mengubah peran. Akun dibuat melalui fungsi server yang aman.</p>
       <form id="createUserForm">
         <div class="formgrid">
-          <label>Nama petugas *<input id="newUserName" type="text" autocomplete="name" maxlength="120" required placeholder="Nama lengkap petugas"></label>
           <label>Email petugas *<input id="newUserEmail" type="email" required></label>
           <label>Kata sandi sementara *
             <input id="newUserPassword" type="password" minlength="8" required>
@@ -457,6 +457,50 @@ header .brand .app-school-logo img {
     }
     document.addEventListener('click', function () { setTimeout(updateAdminMenu, 0); }, true);
   });
+})();
+</script>
+
+
+<script>
+/* Navigasi HP SARPRAS: drawer kiri; tidak mengubah data atau fungsi aplikasi. */
+(function () {
+  const panel = document.getElementById('appPanel');
+  const nav = panel && panel.querySelector(':scope > nav.tabs.no-print');
+  const toggle = document.getElementById('mobileMenuToggle');
+  if (!panel || !nav || !toggle) return;
+  nav.id = 'sarprasMobileNav';
+  nav.setAttribute('aria-label', 'Menu utama SARPRAS');
+  const overlay = document.createElement('button');
+  overlay.type = 'button';
+  overlay.className = 'mobile-menu-overlay no-print';
+  overlay.setAttribute('aria-label', 'Tutup menu');
+  overlay.tabIndex = -1;
+  panel.appendChild(overlay);
+  function isMobile() { return window.matchMedia('(max-width: 760px)').matches; }
+  function closeMenu() {
+    panel.classList.remove('mobile-menu-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Buka menu navigasi');
+    document.body.classList.remove('sarpras-menu-open');
+  }
+  function openMenu() {
+    if (!isMobile()) return;
+    panel.classList.add('mobile-menu-open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-label', 'Tutup menu navigasi');
+    document.body.classList.add('sarpras-menu-open');
+  }
+  toggle.addEventListener('click', function () {
+    panel.classList.contains('mobile-menu-open') ? closeMenu() : openMenu();
+  });
+  overlay.addEventListener('click', closeMenu);
+  nav.addEventListener('click', function (event) {
+    if (event.target.closest('.tab')) closeMenu();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeMenu();
+  });
+  window.addEventListener('resize', function () { if (!isMobile()) closeMenu(); });
 })();
 </script>
 
