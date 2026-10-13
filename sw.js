@@ -1,5 +1,5 @@
 /* Cache versi baru agar browser mengambil app.js terbaru dari GitHub Pages. */
-const CACHE = "sarpras-darussalam-v3-refresh-20261012";
+const CACHE = "sarpras-darussalam-v4-kelola-admin-20261014";
 const SHELL = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", event => {
