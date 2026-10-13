@@ -135,3 +135,34 @@ table th, table td { text-align:center; vertical-align:middle; }
   .tab { padding: 8px 10px; font-size: 12px; }
   .stat { padding: 10px 6px; }
 }
+
+/* SARPRAS MOBILE FIX v2: cegah menu/tabel melebar keluar layar */
+@media (max-width: 700px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden; }
+  main, .view, .panel, .panelhead, .toolbar, .toolbar-actions,
+  .formgrid, .brand, footer { min-width:0; max-width:100%; }
+  .tabs {
+    display:flex !important; flex-wrap:nowrap !important;
+    width:100%; max-width:100%; overflow-x:auto !important;
+    overflow-y:hidden; overscroll-behavior-x:contain; scrollbar-width:thin;
+  }
+  .tab { flex:0 0 auto !important; max-width:82vw; }
+  .tablewrap {
+    display:block; width:100%; max-width:100%;
+    overflow-x:auto !important; overflow-y:hidden;
+    overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch;
+  }
+  .tablewrap table { display:table; width:max-content; min-width:680px; max-width:none; }
+  .panel { overflow:hidden; }
+  .panel > table { display:block; width:100%; max-width:100%; overflow-x:auto; }
+  .stats, .stat, .panelhead, .toolbar, .actions { min-width:0; }
+  .panel img, .panel canvas, .panel svg { max-width:100%; }
+  footer { overflow-wrap:anywhere; }
+}
+@media (max-width: 380px) {
+  header .brand { align-items:flex-start; }
+  header h1 { overflow-wrap:anywhere; }
+  .tabs { gap:5px; }
+  .tab { padding:8px 9px; }
+}
+
