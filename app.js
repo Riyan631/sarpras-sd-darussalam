@@ -499,7 +499,7 @@ function initMutationUI(){
   const navParent=firstTab.parentElement;
   const tab=document.createElement("button");tab.type="button";tab.className=firstTab.className;tab.dataset.view="mutations";tab.textContent="Mutasi Barang";navParent.appendChild(tab);tab.addEventListener("click",()=>activateView("mutations"));
   const viewParent=firstView.parentElement;
-  const view=document.createElement("section");view.id="view-mutations";view.className=firstView.className;view.innerHTML=`
+  const view=document.createElement("section");view.id="view-mutations";view.className="view";view.innerHTML=`
     <div class="card">
       <h2>Catat Mutasi Barang</h2>
       <p class="muted">Mutasi akan langsung memperbarui inventaris utama dan menyimpan riwayat. Pastikan jenis dan jumlah mutasi benar sebelum menyimpan.</p>
@@ -655,7 +655,7 @@ function initQRUI(){
   const firstTab=document.querySelector(".tab"),firstView=document.querySelector(".view");
   if(!firstTab||!firstView){console.warn("QR: area navigasi aplikasi tidak ditemukan");return}
   const tab=document.createElement("button");tab.type="button";tab.className=firstTab.className;tab.dataset.view="qr";tab.textContent="QR & Pemeriksaan";firstTab.parentElement.appendChild(tab);tab.addEventListener("click",()=>activateView("qr"));
-  const view=document.createElement("section");view.id="view-qr";view.className=firstView.className;view.innerHTML=`
+  const view=document.createElement("section");view.id="view-qr";view.className="view";view.innerHTML=`
     <div class="card"><h2>QR Inventaris per Ruangan</h2><p class="muted">Pilih ruangan untuk melihat barang di dalamnya. Setiap barang memiliki QR sendiri yang dapat dicetak sebagai label dan ditempel pada barang.</p>
       <div class="grid"><div class="field"><label for="qrRoomFilter">Filter per ruangan</label><select id="qrRoomFilter"><option value="">Semua ruangan</option></select></div><div class="field"><label for="qrTarget">Pilih barang (opsional)</label><select id="qrTarget"><option value="">Pilih barang</option></select></div></div>
       <div class="actions"><button class="btn" type="button" id="makeQR">Buat QR barang terpilih</button><button class="btn secondary" type="button" id="printQR">Cetak QR terpilih</button><button class="btn secondary" type="button" id="printAllQR">Cetak semua QR di ruangan</button></div><p id="qrMsg" class="msg" role="status"></p><div id="qrRoomSummary" class="muted" style="margin:10px 0"></div><div id="qrRoomItems" class="tablewrap"></div><div id="qrOutput" style="margin-top:16px"></div>
